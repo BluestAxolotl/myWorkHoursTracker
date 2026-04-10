@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'create_job_profile_page.dart';
+import 'job_profile.dart';
+import 'job_profile_database.dart';
+import 'job_profile_details_page.dart';
+
 // A list of options for each app setting
 const List<String> _dateFormats = <String>[
   'MM/DD/YYYY',
@@ -12,7 +17,7 @@ const List<String> _timeFormats = <String>[
   '12 hr',
   '24 hr',
 ];
-
+// TODO: Add option for user to input custom currency symbol in case theirs is not in the list, and validate that input is not empty and does not contain whitespace. For now we just fallback to default currency if their desired currency is not in the list.
 const List<String> _currencySymbols = <String>[
   r'$', // r (raw string) escapes the dollar sign
   '€',
@@ -77,13 +82,12 @@ class _HomeScreenState extends State<HomeScreen> {
   static const String _dateFormatKey = 'app_settings_date_format';
   static const String _timeFormatKey = 'app_settings_time_format';
   static const String _currencySymbolKey = 'app_settings_currency_symbol';
-  static const String _jobProfilesKey = 'job_profiles';
 
   bool _isLoading = true;
   bool _showSettingsAsHome = false;
   AppSettings _settings = AppSettings.fallback;
-  List<String> _jobProfiles = <String>[];
-  int? _selectedProfileIndex;
+  List<JobProfile> _jobProfiles = <JobProfile>[];
+  int? _selectedProfileId;
 
   @override
   void initState() {
@@ -93,7 +97,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadInitialState() async {
     AppSettings loadedSettings = AppSettings.fallback;
-    List<String> loadedProfiles = <String>[];
     bool hasInitializedSettings = false;
 
     try {
@@ -109,21 +112,26 @@ class _HomeScreenState extends State<HomeScreen> {
           savedTimeFormat != null &&
           savedCurrencySymbol != null;
 
-      // Any setting this is null means settings were never saved or failed to load, so we fallback to defaults for that 
-      // specific setting but still try to load others if available
+      // Fill in settings that were able to be fatched, and fallback to defaults for any that were not
       loadedSettings = AppSettings(
         dateFormat: savedDateFormat ?? AppSettings.fallback.dateFormat,
         timeFormat: savedTimeFormat ?? AppSettings.fallback.timeFormat,
         currencySymbol:
             savedCurrencySymbol ?? AppSettings.fallback.currencySymbol,
       );
-
-      loadedProfiles = prefs.getStringList(_jobProfilesKey) ?? <String>[];
     } catch (_) {
       // If any error occurs during loading (e.g. data corruption), fallback to defaults
       loadedSettings = AppSettings.fallback;
-      loadedProfiles = <String>[];
       hasInitializedSettings = false;
+    }
+
+    List<JobProfile> loadedProfiles = <JobProfile>[];
+    // Fetch job profiles from local database, if this fails show empty list of profiles
+    try {
+      loadedProfiles = await JobProfileDatabase.instance.getAllJobProfiles();
+    } catch (_) {
+      // TODO: Surface error to user with option to retry loading profiles
+      loadedProfiles = <JobProfile>[];
     }
 
     if (!mounted) {
@@ -133,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _settings = loadedSettings;
       _jobProfiles = loadedProfiles;
-      _selectedProfileIndex = loadedProfiles.isEmpty ? null : 0;
+      _selectedProfileId = loadedProfiles.isEmpty ? null : loadedProfiles.first.id;
       // User is taken to app settings on first launch or if settings failed to load, otherwise show main screen
       _showSettingsAsHome = !hasInitializedSettings;
       _isLoading = false;
@@ -168,77 +176,74 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Future<void> _persistProfiles() async {
+  Future<void> _refreshProfilesFromDb() async {
     try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList(_jobProfilesKey, _jobProfiles);
+      final List<JobProfile> profiles = await JobProfileDatabase.instance.getAllJobProfiles();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _jobProfiles = profiles;
+        if (_jobProfiles.isEmpty) {
+          _selectedProfileId = null;
+          return;
+        }
+        final bool selectedExists = _jobProfiles.any((JobProfile p) => p.id == _selectedProfileId);
+        if (!selectedExists) {
+          _selectedProfileId = _jobProfiles.first.id;
+        }
+      });
     } catch (_) {
       if (!mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Job profiles could not be saved to local storage.'),
+          content: Text('Could not load job profiles from local database.'),
         ),
       );
     }
   }
 
-  Future<void> _addJobProfile() async {
-    final TextEditingController controller = TextEditingController();
-    final String? profileName = await showDialog<String>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Create Job Profile'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            decoration: const InputDecoration(labelText: 'Profile name'),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final String trimmed = controller.text.trim();
-                Navigator.of(context).pop(trimmed.isEmpty ? null : trimmed);
-              },
-              child: const Text('Create'),
-            ),
-          ],
-        );
-      },
+  Future<void> _openCreateJobProfile() async {
+    final JobProfile? created = await Navigator.of(context).push<JobProfile>(
+      MaterialPageRoute<JobProfile>(
+        builder: (BuildContext context) => const CreateJobProfilePage(),
+      ),
     );
 
-    if (profileName == null) {
+    if (created == null) {
+      return;
+    }
+
+    await _refreshProfilesFromDb();
+
+    if (!mounted) {
       return;
     }
 
     setState(() {
-      _jobProfiles = <String>[..._jobProfiles, profileName];
-      _selectedProfileIndex = _jobProfiles.length - 1;
+      _selectedProfileId = created.id;
     });
-    await _persistProfiles();
   }
 
-  Future<void> _deleteProfile(int index) async {
-    if (index < 0 || index >= _jobProfiles.length) {
+  Future<void> _deleteProfileById(int id) async {
+    final int index = _jobProfiles.indexWhere((JobProfile profile) => profile.id == id);
+    if (index == -1) {
       return;
     }
 
-    setState(() {
-      _jobProfiles.removeAt(index);
-      if (_jobProfiles.isEmpty) {
-        _selectedProfileIndex = null;
-      } else if (_selectedProfileIndex == null ||
-          _selectedProfileIndex! >= _jobProfiles.length) {
-        _selectedProfileIndex = 0;
+    try {
+      await JobProfileDatabase.instance.deleteJobProfile(id);
+      await _refreshProfilesFromDb();
+    } catch (_) {
+      if (!mounted) {
+        return;
       }
-    });
-    await _persistProfiles();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not delete profile.')),
+      );
+    }
   }
   // Opens the settings page and waits for it to pop with updated settings, then saves those settings if they are not null.
   Future<void> _openSettingsPage() async {
@@ -274,13 +279,19 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    final String selectedProfile = _selectedProfileIndex == null
-        ? ''
-        : _jobProfiles[_selectedProfileIndex!];
+    final JobProfile? selectedProfile = _selectedProfileId == null
+      ? null
+      : _jobProfiles
+          .where((JobProfile profile) => profile.id == _selectedProfileId)
+          .cast<JobProfile?>()
+          .firstOrNull;
+
+    // Long form page title is job profile name but app name otherwise
+    final String pageTitle = selectedProfile?.name ?? 'Work Hours Tracker';
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Work Hours Tracker'),
+        title: Text(pageTitle),
       ),
       drawer: Drawer(
         child: SafeArea(
@@ -315,19 +326,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: ListView.builder(
                   itemCount: _jobProfiles.length,
                   itemBuilder: (BuildContext context, int index) {
+                    final JobProfile profile = _jobProfiles[index];
                     return ListTile(
-                      selected: _selectedProfileIndex == index,
-                      title: Text(_jobProfiles[index]),
+                      selected: _selectedProfileId == profile.id,
+                      title: Text(profile.name),
                       onTap: () {
                         setState(() {
-                          _selectedProfileIndex = index;
+                          _selectedProfileId = profile.id;
                         });
                         Navigator.of(context).pop();
                       },
                       trailing: IconButton(
                         icon: const Icon(Icons.delete_outline),
                         tooltip: 'Delete profile',
-                        onPressed: () => _deleteProfile(index),
+                        onPressed: profile.id == null
+                            ? null
+                            : () => _deleteProfileById(profile.id!),
                       ),
                     );
                   },
@@ -336,40 +350,47 @@ class _HomeScreenState extends State<HomeScreen> {
               const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.add),
-                title: const Text('Add Job Profile'),
+                title: const Text('Create Job Profile'),
                 onTap: () {
                   Navigator.of(context).pop();
-                  _addJobProfile();
+                  _openCreateJobProfile();
                 },
               ),
             ],
           ),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: _jobProfiles.isEmpty
-            ? const Center(
+      body: _jobProfiles.isEmpty
+          ? const Padding(
+              padding: EdgeInsets.all(20),
+              child: Center(
                 child: Text(
                   'No job profiles yet. Open the sidebar to add one.',
                   textAlign: TextAlign.center,
                 ),
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    'Selected profile: $selectedProfile',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 16),
-                  Text('Date format: ${_settings.dateFormat}'),
-                  Text('Time format: ${_settings.timeFormat}'),
-                  Text('Currency symbol: ${_settings.currencySymbol}'),
-                ],
               ),
-      ),
+            )
+          : selectedProfile == null
+              ? const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Center(
+                    child: Text('Select a job profile from the sidebar.'),
+                  ),
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: JobProfileLongForm(profile: selectedProfile),
+                ),
     );
+  }
+}
+
+extension _FirstOrNullExtension<T> on Iterable<T> {
+  T? get firstOrNull {
+    if (isEmpty) {
+      return null;
+    }
+    return first;
   }
 }
 // Separate page for editing app settings, which can be used both as a standalone page or as a home screen for first time users who haven't initialized settings yet.
