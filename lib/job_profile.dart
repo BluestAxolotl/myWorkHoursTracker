@@ -68,9 +68,6 @@ class JobProfile {
     required this.payPeriod,
     this.payDayOfWeek,
     this.payDayOfMonth,
-    required this.breaksPaid,
-    this.unpaidBreakCount,
-    required this.lunchPaid,
     required this.overtimePaid,
     this.overtimeMode,
     this.overtimeThresholdHours,
@@ -83,9 +80,6 @@ class JobProfile {
   final PayPeriod payPeriod;
   final Weekday? payDayOfWeek;
   final int? payDayOfMonth;
-  final bool breaksPaid;
-  final int? unpaidBreakCount;
-  final bool lunchPaid;
   final bool overtimePaid;
   final OvertimeMode? overtimeMode;
   final int? overtimeThresholdHours;
@@ -99,9 +93,6 @@ class JobProfile {
       'pay_period': payPeriod.name,
       'pay_day_of_week': payDayOfWeek?.name,
       'pay_day_of_month': payDayOfMonth,
-      'breaks_paid': breaksPaid ? 1 : 0,
-      'unpaid_break_count': unpaidBreakCount,
-      'lunch_paid': lunchPaid ? 1 : 0,
       'overtime_paid': overtimePaid ? 1 : 0,
       'overtime_mode': overtimeMode?.name,
       'overtime_threshold_hours': overtimeThresholdHours,
@@ -116,9 +107,6 @@ class JobProfile {
     PayPeriod? payPeriod,
     Weekday? payDayOfWeek,
     int? payDayOfMonth,
-    bool? breaksPaid,
-    int? unpaidBreakCount,
-    bool? lunchPaid,
     bool? overtimePaid,
     OvertimeMode? overtimeMode,
     int? overtimeThresholdHours,
@@ -131,9 +119,6 @@ class JobProfile {
       payPeriod: payPeriod ?? this.payPeriod,
       payDayOfWeek: payDayOfWeek ?? this.payDayOfWeek,
       payDayOfMonth: payDayOfMonth ?? this.payDayOfMonth,
-      breaksPaid: breaksPaid ?? this.breaksPaid,
-      unpaidBreakCount: unpaidBreakCount ?? this.unpaidBreakCount,
-      lunchPaid: lunchPaid ?? this.lunchPaid,
       overtimePaid: overtimePaid ?? this.overtimePaid,
       overtimeMode: overtimeMode ?? this.overtimeMode,
       overtimeThresholdHours:
@@ -158,9 +143,6 @@ class JobProfile {
               orElse: () => Weekday.mon,
             ),
       payDayOfMonth: map['pay_day_of_month'] as int?,
-      breaksPaid: (map['breaks_paid'] as int? ?? 0) == 1,
-      unpaidBreakCount: map['unpaid_break_count'] as int?,
-      lunchPaid: (map['lunch_paid'] as int? ?? 0) == 1,
       overtimePaid: (map['overtime_paid'] as int? ?? 0) == 1,
       overtimeMode: map['overtime_mode'] == null
           ? null

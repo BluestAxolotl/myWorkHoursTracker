@@ -53,19 +53,6 @@ class JobProfileLongForm extends StatelessWidget {
         ),
         const Divider(height: 32),
         _DetailRow(
-          label: 'Breaks',
-          value: profile.breaksPaid ? 'Paid' : 'Unpaid',
-        ),
-        _DetailRow(
-          label: 'Unpaid Break Count',
-          value: profile.unpaidBreakCount?.toString() ?? 'N/A',
-        ),
-        _DetailRow(
-          label: 'Lunch',
-          value: profile.lunchPaid ? 'Paid' : 'Unpaid',
-        ),
-        const Divider(height: 32),
-        _DetailRow(
           label: 'Overtime',
           value: profile.overtimePaid ? 'Paid' : 'Unpaid',
         ),

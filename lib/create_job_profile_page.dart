@@ -17,10 +17,8 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _payRateController = TextEditingController();
-  final TextEditingController _overtimeThresholdController =
-      TextEditingController();
-  final TextEditingController _overtimeMultiplierController =
-      TextEditingController();
+  final TextEditingController _overtimeThresholdController = TextEditingController();
+  final TextEditingController _overtimeMultiplierController = TextEditingController();
   final TextEditingController _payDayOfMonthController = TextEditingController();
 
   final FocusNode _nameFocusNode = FocusNode();
@@ -32,11 +30,6 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
   PayPeriod? _payPeriod;
   Weekday? _payDayOfWeek;
   int? _payDayOfMonth;
-
-  bool? _breaksPaid;
-  int? _unpaidBreakCount;
-
-  bool? _lunchPaid;
 
   bool? _overtimePaid;
   OvertimeMode? _overtimeMode;
@@ -105,9 +98,7 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
     }
 
     if (!twoDecimalsPattern.hasMatch(raw)) {
-      errors.add(
-        'Enter pay rate with two decimal places; use 0 as the last decimal if needed.',
-      );
+      errors.add('Enter pay rate with two decimal places; use 0 as the last decimal if needed.');
     }
 
     return errors;
@@ -160,17 +151,13 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
 
     final int maxHours = _maxOvertimeThresholdByPayPeriod();
     if (threshold == null || threshold < 23 || threshold > maxHours) {
-      return <String>[
-        'Invalid input. Enter an integer from 23 to $maxHours.',
-      ];
+      return <String>['Invalid input. Enter an integer from 23 to $maxHours.'];
     }
     return <String>[];
   }
 
   List<String> _overtimeMultiplierErrors() {
-    if (_overtimePaid != true ||
-        _overtimeMode == null ||
-        _overtimeThresholdErrors().isNotEmpty) {
+    if (_overtimePaid != true || _overtimeMode == null || _overtimeThresholdErrors().isNotEmpty) {
       return <String>[];
     }
 
@@ -191,8 +178,8 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
 
   bool _validateRequiredSelections() {
     final bool hasPayPeriod = _payPeriod != null;
-    
-    bool hasValidPayDay;
+
+    final bool hasValidPayDay;
     if (_payPeriod == PayPeriod.daily) {
       hasValidPayDay = true;
     } else if (_payPeriod == PayPeriod.monthly) {
@@ -201,22 +188,10 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
       hasValidPayDay = _payDayOfWeek != null;
     }
 
-    final bool hasBreaks = _breaksPaid != null;
-    final bool hasUnpaidCount = _breaksPaid != false || _unpaidBreakCount != null;
-    final bool hasLunch = _lunchPaid != null;
     final bool hasOvertimeChoice = _overtimePaid != null;
+    final bool overtimeSelectionValid = _overtimePaid != true || (_isPayPeriodDaily || _overtimeMode != null);
 
-    final bool overtimeSelectionValid =
-        _overtimePaid != true ||
-      (_isPayPeriodDaily || _overtimeMode != null);
-
-    return hasPayPeriod &&
-        hasValidPayDay &&
-        hasBreaks &&
-        hasUnpaidCount &&
-        hasLunch &&
-        hasOvertimeChoice &&
-        overtimeSelectionValid;
+    return hasPayPeriod && hasValidPayDay && hasOvertimeChoice && overtimeSelectionValid;
   }
 
   Future<void> _handleCreate() async {
@@ -230,16 +205,20 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
         _overtimeModeErrors().isEmpty &&
         _overtimeThresholdErrors().isEmpty &&
         _overtimeMultiplierErrors().isEmpty;
-
     final bool hasAllSelections = _validateRequiredSelections();
 
     if (!hasNoTextErrors || !hasAllSelections || !hasNoOvertimeErrors) {
       if (!mounted) {
         return;
       }
+      // 
+      final String errorMessage = !hasAllSelections && (!hasNoTextErrors || !hasNoOvertimeErrors)
+          ? 'Please fill in required fields and correct errors.'
+          : 'Please correct errors before submitting.';
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in required fields and correct errors.'),
+        SnackBar(
+          content: Text(errorMessage),
         ),
       );
       return;
@@ -248,17 +227,9 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
     final double payRate = double.parse(_payRateController.text.trim());
 
     final bool overtimePaid = _overtimePaid ?? false;
-    final OvertimeMode? overtimeMode = overtimePaid
-        ? (_isPayPeriodDaily ? OvertimeMode.daily : _overtimeMode)
-        : null;
-
-    final int? overtimeThreshold = overtimePaid
-        ? int.tryParse(_overtimeThresholdController.text.trim())
-        : null;
-
-    final double? overtimeMultiplier = overtimePaid
-        ? double.tryParse(_overtimeMultiplierController.text.trim())
-        : null;
+    final OvertimeMode? overtimeMode = overtimePaid ? (_isPayPeriodDaily ? OvertimeMode.daily : _overtimeMode) : null;
+    final int? overtimeThreshold = overtimePaid ? int.tryParse(_overtimeThresholdController.text.trim()) : null;
+    final double? overtimeMultiplier = overtimePaid ? double.tryParse(_overtimeMultiplierController.text.trim()) : null;
 
     final JobProfile profile = JobProfile(
       name: _nameController.text.trim(),
@@ -266,9 +237,6 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
       payPeriod: _payPeriod!,
       payDayOfWeek: _payDayOfWeek,
       payDayOfMonth: _payDayOfMonth,
-      breaksPaid: _breaksPaid ?? true,
-      unpaidBreakCount: _breaksPaid == false ? _unpaidBreakCount : null,
-      lunchPaid: _lunchPaid ?? true,
       overtimePaid: overtimePaid,
       overtimeMode: overtimeMode,
       overtimeThresholdHours: overtimeThreshold,
@@ -290,7 +258,7 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Could not save profile. Please try again.'),
         ),
       );
@@ -331,21 +299,14 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final List<String> nameErrors = (_nameTouched || _submitAttempted)
-        ? _nameErrors()
-        : <String>[];
+    final List<String> nameErrors = (_nameTouched || _submitAttempted) ? _nameErrors() : <String>[];
     final List<String> payRateErrors = _submitAttempted ? _payRateErrors() : <String>[];
-    final List<String> overtimeModeErrors =
-        _submitAttempted ? _overtimeModeErrors() : <String>[];
-    final List<String> overtimeThresholdErrors =
-        _submitAttempted ? _overtimeThresholdErrors() : <String>[];
-    final List<String> overtimeMultiplierErrors =
-        _submitAttempted ? _overtimeMultiplierErrors() : <String>[];
+    final List<String> overtimeModeErrors = _submitAttempted ? _overtimeModeErrors() : <String>[];
+    final List<String> overtimeThresholdErrors = _submitAttempted ? _overtimeThresholdErrors() : <String>[];
+    final List<String> overtimeMultiplierErrors = _submitAttempted ? _overtimeMultiplierErrors() : <String>[];
 
-    final bool showOvertimeThresholdInput = _overtimePaid == true &&
-      (_isPayPeriodDaily || _overtimeMode != null) &&
-        overtimeModeErrors.isEmpty;
-
+    final bool showOvertimeThresholdInput =
+        _overtimePaid == true && (_isPayPeriodDaily || _overtimeMode != null) && overtimeModeErrors.isEmpty;
     final bool showOvertimeMultiplierInput = showOvertimeThresholdInput;
 
     return Scaffold(
@@ -401,8 +362,7 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
                         if (_overtimePaid == true) {
                           _overtimeMode = OvertimeMode.daily;
                         }
-                      }
-                      if (_overtimePaid != true) {
+                      } else if (_overtimePaid == true) {
                         _overtimeMode = null;
                       }
                       _overtimeThresholdController.clear();
@@ -454,72 +414,6 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
                 ],
                 const SizedBox(height: 16),
                 DropdownButtonFormField<bool>(
-                  initialValue: _breaksPaid,
-                  decoration: const InputDecoration(
-                    labelText: 'Breaks paid?',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: const <DropdownMenuItem<bool>>[
-                    DropdownMenuItem<bool>(value: true, child: Text('Paid')),
-                    DropdownMenuItem<bool>(value: false, child: Text('Unpaid')),
-                  ],
-                  onChanged: (bool? value) {
-                    setState(() {
-                      _breaksPaid = value;
-                      if (value != false) {
-                        _unpaidBreakCount = null;
-                      }
-                    });
-                  },
-                ),
-                if (_submitAttempted && _breaksPaid == null)
-                  _buildErrorList(<String>['Please choose paid or unpaid breaks.']),
-                if (_breaksPaid == false) ...<Widget>[
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<int>(
-                    initialValue: _unpaidBreakCount,
-                    decoration: const InputDecoration(
-                      labelText: 'Number of unpaid breaks',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: const <int>[1, 2, 3, 4, 5]
-                        .map(
-                          (int value) => DropdownMenuItem<int>(
-                            value: value,
-                            child: Text(value.toString()),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (int? value) {
-                      setState(() {
-                        _unpaidBreakCount = value;
-                      });
-                    },
-                  ),
-                  if (_submitAttempted && _unpaidBreakCount == null)
-                    _buildErrorList(<String>['Please choose the unpaid break count.']),
-                ],
-                const SizedBox(height: 16),
-                DropdownButtonFormField<bool>(
-                  initialValue: _lunchPaid,
-                  decoration: const InputDecoration(
-                    labelText: 'Lunch paid?',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: const <DropdownMenuItem<bool>>[
-                    DropdownMenuItem<bool>(value: true, child: Text('Paid')),
-                    DropdownMenuItem<bool>(value: false, child: Text('Unpaid')),
-                  ],
-                  onChanged: (bool? value) {
-                    setState(() {
-                      _lunchPaid = value;
-                    });
-                  },
-                ),
-                if (_submitAttempted && _lunchPaid == null)
-                  _buildErrorList(<String>['Please choose paid or unpaid lunch.']),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<bool>(
                   initialValue: _overtimePaid,
                   decoration: const InputDecoration(
                     labelText: 'Overtime paid?',
@@ -548,12 +442,12 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
                 if (_overtimePaid == true) ...<Widget>[
                   const SizedBox(height: 16),
                   if (_isPayPeriodDaily)
-                    InputDecorator(
-                      decoration: const InputDecoration(
+                    const InputDecorator(
+                      decoration: InputDecoration(
                         labelText: 'Overtime applies',
                         border: OutlineInputBorder(),
                       ),
-                      child: const Text('Daily'),
+                      child: Text('Daily'),
                     )
                   else
                     DropdownButtonFormField<OvertimeMode>(
@@ -562,9 +456,7 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
                         labelText: 'Overtime applies',
                         border: const OutlineInputBorder(),
                         fillColor: _payPeriod == null
-                            ? Theme.of(context)
-                                .colorScheme
-                                .surfaceContainerHighest
+                            ? Theme.of(context).colorScheme.surfaceContainerHighest
                             : null,
                         filled: _payPeriod == null,
                       ),

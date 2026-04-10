@@ -24,9 +24,6 @@ void main() {
       payRate: 19.50,
       payPeriod: PayPeriod.weekly,
       payDayOfWeek: Weekday.fri,
-      breaksPaid: false,
-      unpaidBreakCount: 2,
-      lunchPaid: true,
       overtimePaid: true,
       overtimeMode: OvertimeMode.byPayPeriod,
       overtimeThresholdHours: 40,
@@ -41,9 +38,6 @@ void main() {
     expect(parsed.payRate, 19.50);
     expect(parsed.payPeriod, PayPeriod.weekly);
     expect(parsed.payDayOfWeek, Weekday.fri);
-    expect(parsed.breaksPaid, false);
-    expect(parsed.unpaidBreakCount, 2);
-    expect(parsed.lunchPaid, true);
     expect(parsed.overtimePaid, true);
     expect(parsed.overtimeMode, OvertimeMode.byPayPeriod);
     expect(parsed.overtimeThresholdHours, 40);
@@ -57,8 +51,6 @@ void main() {
       payRate: 3500.00,
       payPeriod: PayPeriod.monthly,
       payDayOfMonth: 15,
-      breaksPaid: true,
-      lunchPaid: true,
       overtimePaid: false,
     );
 
