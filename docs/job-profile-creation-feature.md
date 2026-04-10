@@ -7,7 +7,7 @@ This feature enables users to create and manage job profiles, where each profile
 ## Database Persistence
 
 ### Encrypted SQLite Storage
-- Job profiles are stored in an encrypted SQLite database using `sqflite_sqlcipher` with the password `myWorkHoursTracker_local_key_v1`.
+- Job profiles are stored in an encrypted SQLite database using `sqflite_sqlcipher` with the temporary password `myWorkHoursTracker_local_key_v1`.
 - Database file: `work_hours_tracker.db`
 - Schema version: 2 (with migration support for future updates)
 
