@@ -157,7 +157,7 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
   }
 
   List<String> _overtimeMultiplierErrors() {
-    if (_overtimePaid != true || _overtimeMode == null || _overtimeThresholdErrors().isNotEmpty) {
+    if (_overtimePaid != true || _overtimeMode == null) {
       return <String>[];
     }
 
@@ -211,7 +211,7 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
       if (!mounted) {
         return;
       }
-      // 
+      // Determine the appropriate error message
       final String errorMessage = !hasAllSelections && (!hasNoTextErrors || !hasNoOvertimeErrors)
           ? 'Please fill in required fields and correct errors.'
           : 'Please correct errors before submitting.';
