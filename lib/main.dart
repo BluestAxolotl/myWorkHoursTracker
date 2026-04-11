@@ -82,6 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
   static const String _dateFormatKey = 'app_settings_date_format';
   static const String _timeFormatKey = 'app_settings_time_format';
   static const String _currencySymbolKey = 'app_settings_currency_symbol';
+  static const String _jobProfileOrderKey = 'job_profile_order_v1';
 
   bool _isLoading = true;
   bool _showSettingsAsHome = false;
@@ -129,6 +130,14 @@ class _HomeScreenState extends State<HomeScreen> {
     // Fetch job profiles from local database, if this fails show empty list of profiles
     try {
       loadedProfiles = await JobProfileDatabase.instance.getAllJobProfiles();
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final List<String> savedOrderRaw =
+          prefs.getStringList(_jobProfileOrderKey) ?? <String>[];
+      final List<int> savedOrder = savedOrderRaw
+          .map(int.tryParse)
+          .whereType<int>()
+          .toList();
+      loadedProfiles = _applySavedProfileOrder(loadedProfiles, savedOrder);
     } catch (_) {
       // TODO: Surface error to user with option to retry loading profiles
       loadedProfiles = <JobProfile>[];
@@ -146,6 +155,56 @@ class _HomeScreenState extends State<HomeScreen> {
       _showSettingsAsHome = !hasInitializedSettings;
       _isLoading = false;
     });
+
+    await _persistProfileOrder(loadedProfiles);
+  }
+
+  List<JobProfile> _applySavedProfileOrder(
+    List<JobProfile> profiles,
+    List<int> orderedIds,
+  ) {
+    if (profiles.isEmpty || orderedIds.isEmpty) {
+      return profiles;
+    }
+
+    final Map<int, JobProfile> byId = <int, JobProfile>{
+      for (final JobProfile profile in profiles)
+        if (profile.id != null) profile.id!: profile,
+    };
+
+    final Set<int> seen = <int>{};
+    final List<JobProfile> reordered = <JobProfile>[];
+
+    for (final int id in orderedIds) {
+      final JobProfile? profile = byId[id];
+      if (profile != null) {
+        reordered.add(profile);
+        seen.add(id);
+      }
+    }
+
+    for (final JobProfile profile in profiles) {
+      final int? id = profile.id;
+      if (id == null || !seen.contains(id)) {
+        reordered.add(profile);
+      }
+    }
+
+    return reordered;
+  }
+
+  Future<void> _persistProfileOrder(List<JobProfile> profiles) async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final List<String> orderedIds = profiles
+          .map((JobProfile profile) => profile.id)
+          .whereType<int>()
+          .map((int id) => id.toString())
+          .toList();
+      await prefs.setStringList(_jobProfileOrderKey, orderedIds);
+    } catch (_) {
+      // Best effort only; sidebar still works without persistence.
+    }
   }
 
   Future<void> _saveSettings(AppSettings settings) async {
@@ -178,7 +237,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _refreshProfilesFromDb() async {
     try {
-      final List<JobProfile> profiles = await JobProfileDatabase.instance.getAllJobProfiles();
+      final List<JobProfile> profilesFromDb = await JobProfileDatabase.instance.getAllJobProfiles();
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final List<String> savedOrderRaw =
+          prefs.getStringList(_jobProfileOrderKey) ?? <String>[];
+      final List<int> savedOrder = savedOrderRaw
+          .map(int.tryParse)
+          .whereType<int>()
+          .toList();
+      final List<JobProfile> profiles = _applySavedProfileOrder(
+        profilesFromDb,
+        savedOrder,
+      );
       if (!mounted) {
         return;
       }
@@ -193,6 +263,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _selectedProfileId = _jobProfiles.first.id;
         }
       });
+      await _persistProfileOrder(profiles);
     } catch (_) {
       if (!mounted) {
         return;
@@ -244,6 +315,24 @@ class _HomeScreenState extends State<HomeScreen> {
         const SnackBar(content: Text('Could not delete profile.')),
       );
     }
+  }
+
+  Future<void> _reorderSidebarProfiles(int oldIndex, int newIndex) async {
+    final int targetIndex = newIndex > oldIndex ? newIndex - 1 : newIndex;
+    if (oldIndex == targetIndex ||
+        oldIndex < 0 ||
+        targetIndex < 0 ||
+        oldIndex >= _jobProfiles.length ||
+        targetIndex >= _jobProfiles.length) {
+      return;
+    }
+
+    setState(() {
+      final JobProfile moved = _jobProfiles.removeAt(oldIndex);
+      _jobProfiles.insert(targetIndex, moved);
+    });
+
+    await _persistProfileOrder(_jobProfiles);
   }
   // Opens the settings page and waits for it to pop with updated settings, then saves those settings if they are not null.
   Future<void> _openSettingsPage() async {
@@ -299,35 +388,55 @@ class _HomeScreenState extends State<HomeScreen> {
             children: <Widget>[
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    const Expanded(
-                      child: Text(
-                        'Job Profiles',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
+                    Row(
+                      children: <Widget>[
+                        const Expanded(
+                          child: Text(
+                            'Job Profiles',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'App Settings',
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            _openSettingsPage();
+                          },
+                          icon: const Icon(Icons.settings),
+                        ),
+                      ],
+                    ),
+                    // Show drag to reorder hint if there are multiple profiles
+                    if (_jobProfiles.length > 1)
+                      const Padding(
+                        padding: EdgeInsets.only(left: 2, top: 2),
+                        child: Text(
+                          'Drag profile rows to reorder',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.black54,
+                          ),
                         ),
                       ),
-                    ),
-                    IconButton(
-                      tooltip: 'App Settings',
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        _openSettingsPage();
-                      },
-                      icon: const Icon(Icons.settings),
-                    ),
                   ],
                 ),
               ),
               const Divider(height: 1),
               Expanded(
-                child: ListView.builder(
+                child: ReorderableListView.builder(
+                  buildDefaultDragHandles: false,
                   itemCount: _jobProfiles.length,
+                  onReorder: _reorderSidebarProfiles,
                   itemBuilder: (BuildContext context, int index) {
                     final JobProfile profile = _jobProfiles[index];
                     return ListTile(
+                      key: ValueKey<int?>(profile.id),
                       selected: _selectedProfileId == profile.id,
                       title: Text(profile.name),
                       onTap: () {
@@ -336,12 +445,24 @@ class _HomeScreenState extends State<HomeScreen> {
                         });
                         Navigator.of(context).pop();
                       },
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        tooltip: 'Delete profile',
-                        onPressed: profile.id == null
-                            ? null
-                            : () => _deleteProfileById(profile.id!),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline),
+                            tooltip: 'Delete profile',
+                            onPressed: profile.id == null
+                                ? null
+                                : () => _deleteProfileById(profile.id!),
+                          ),
+                          ReorderableDragStartListener(
+                            index: index,
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 8),
+                              child: Icon(Icons.drag_handle),
+                            ),
+                          ),
+                        ],
                       ),
                     );
                   },
