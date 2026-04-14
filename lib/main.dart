@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'create_job_profile_page.dart';
@@ -89,7 +90,6 @@ class _HomeScreenState extends State<HomeScreen> {
   AppSettings _settings = AppSettings.fallback;
   List<JobProfile> _jobProfiles = <JobProfile>[];
   int? _selectedProfileId;
-
   @override
   void initState() {
     super.initState();
@@ -317,6 +317,39 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _confirmAndDeleteProfile(JobProfile profile) async {
+    final int? id = profile.id;
+    if (id == null) {
+      return;
+    }
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Delete job profile?'),
+          content: Text(
+            'Delete "${profile.name}" and all associated work sessions?',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      await _deleteProfileById(id);
+    }
+  }
+
   Future<void> _reorderSidebarProfiles(int oldIndex, int newIndex) async {
     final int targetIndex = newIndex > oldIndex ? newIndex - 1 : newIndex;
     if (oldIndex == targetIndex ||
@@ -334,6 +367,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     await _persistProfileOrder(_jobProfiles);
   }
+
   // Opens the settings page and waits for it to pop with updated settings, then saves those settings if they are not null.
   Future<void> _openSettingsPage() async {
     final AppSettings? savedSettings = await Navigator.of(context).push<AppSettings>(
@@ -424,19 +458,33 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                       ),
+                    if (_jobProfiles.isNotEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(left: 2, top: 2),
+                        child: Text(
+                          'Swipe right to edit, left to delete',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.black54,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
               const Divider(height: 1),
               Expanded(
-                child: ReorderableListView.builder(
-                  buildDefaultDragHandles: false,
-                  itemCount: _jobProfiles.length,
-                  onReorder: _reorderSidebarProfiles,
-                  itemBuilder: (BuildContext context, int index) {
+                child: SlidableAutoCloseBehavior(
+                  closeWhenTapped: true,
+                  child: ReorderableListView.builder(
+                    buildDefaultDragHandles: false,
+                    itemCount: _jobProfiles.length,
+                    onReorder: _reorderSidebarProfiles,
+                    itemBuilder: (BuildContext context, int index) {
                     final JobProfile profile = _jobProfiles[index];
-                    return ListTile(
-                      key: ValueKey<int?>(profile.id),
+                    final int? profileId = profile.id;
+
+                    final Widget listTile = ListTile(
                       selected: _selectedProfileId == profile.id,
                       title: Text(profile.name),
                       onTap: () {
@@ -445,27 +493,70 @@ class _HomeScreenState extends State<HomeScreen> {
                         });
                         Navigator.of(context).pop();
                       },
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline),
-                            tooltip: 'Delete profile',
-                            onPressed: profile.id == null
-                                ? null
-                                : () => _deleteProfileById(profile.id!),
+                        trailing: ReorderableDragStartListener(
+                          index: index,
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8),
+                            child: Icon(Icons.drag_handle),
                           ),
-                          ReorderableDragStartListener(
-                            index: index,
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 8),
-                              child: Icon(Icons.drag_handle),
+                      ),
+                    );
+
+                    if (profileId == null) {
+                      return SizedBox(
+                        key: ValueKey<int?>(profile.id),
+                        child: listTile,
+                      );
+                    }
+
+                    return Slidable(
+                      key: ValueKey<int?>(profile.id),
+                      startActionPane: ActionPane(
+                        motion: const ScrollMotion(),
+                        extentRatio: 0.22,
+                        children: <Widget>[
+                          CustomSlidableAction(
+                            onPressed: (_) {
+                              // Edit button - nonfunctional for now
+                            },
+                            backgroundColor: Theme.of(context).colorScheme.primary,
+                            foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                            padding: const EdgeInsets.all(10),
+                            borderRadius: BorderRadius.circular(8),
+                            child: const Center(
+                              child: SizedBox.square(
+                                dimension: 24,
+                                child: Icon(Icons.edit),
+                              ),
                             ),
                           ),
                         ],
                       ),
+                      endActionPane: ActionPane(
+                        motion: const ScrollMotion(),
+                        extentRatio: 0.22,
+                        children: <Widget>[
+                          CustomSlidableAction(
+                            onPressed: (_) {
+                              _confirmAndDeleteProfile(profile);
+                            },
+                            backgroundColor: Theme.of(context).colorScheme.error,
+                            foregroundColor: Theme.of(context).colorScheme.onError,
+                            padding: const EdgeInsets.all(10),
+                            borderRadius: BorderRadius.circular(8),
+                            child: const Center(
+                              child: SizedBox.square(
+                                dimension: 24,
+                                child: Icon(Icons.delete),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      child: listTile,
                     );
-                  },
+                    },
+                  ),
                 ),
               ),
               const Divider(height: 1),
