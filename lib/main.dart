@@ -568,6 +568,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   _openCreateJobProfile();
                 },
               ),
+              ListTile(
+                leading: const Icon(Icons.upload_file),
+                title: const Text('Import Job Profile'),
+                onTap: () {
+                  // Placeholder for upcoming import flow.
+                },
+              ),
             ],
           ),
         ),
