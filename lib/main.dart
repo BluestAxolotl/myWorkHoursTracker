@@ -598,7 +598,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 )
               : SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
-                  child: JobProfileLongForm(profile: selectedProfile),
+                  child: JobProfileLongForm(
+                    profile: selectedProfile,
+                    appSettings: _settings,
+                  ),
                 ),
     );
   }
