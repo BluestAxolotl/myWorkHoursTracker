@@ -109,7 +109,7 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
       return <String>[];
     }
     if (_payDayOfWeek == null) {
-      return <String>['Please choose a pay day of the week.'];
+      return <String>['Please choose a pay period end day of the week.'];
     }
     return <String>[];
   }
@@ -235,8 +235,8 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
       name: _nameController.text.trim(),
       payRate: payRate,
       payPeriod: _payPeriod!,
-      payDayOfWeek: _payDayOfWeek,
-      payDayOfMonth: _payDayOfMonth,
+      payPeriodEndDayOfWeek: _payDayOfWeek,
+      payPeriodEndDayOfMonth: _payDayOfMonth,
       overtimePaid: overtimePaid,
       overtimeMode: overtimeMode,
       overtimeThresholdHours: overtimeThreshold,
@@ -377,7 +377,7 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
                   DropdownButtonFormField<Weekday>(
                     initialValue: _payDayOfWeek,
                     decoration: const InputDecoration(
-                      labelText: 'Pay day of the week',
+                      labelText: 'Pay period end day of the week',
                       border: OutlineInputBorder(),
                     ),
                     items: Weekday.values
@@ -401,7 +401,7 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
                     controller: _payDayOfMonthController,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
-                      labelText: 'Pay day of the month (1-31)',
+                      labelText: 'Pay period end day of the month (1-31)',
                       border: OutlineInputBorder(),
                     ),
                     onChanged: (String value) {

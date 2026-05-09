@@ -295,6 +295,68 @@ String formatDateWithSetting(DateTime date, String dateFormat) {
   }
 }
 
+String formatDateRangeWithSetting(
+  DateTime start,
+  DateTime end,
+  String dateFormat,
+) {
+  return '${formatDateWithSetting(start, dateFormat)} - ${formatDateWithSetting(end, dateFormat)}';
+}
+
+DateTime? parseDateWithSetting(String raw, String dateFormat) {
+  final String value = raw.trim();
+  if (value.isEmpty) {
+    return null;
+  }
+
+  final List<String> parts = value
+      .replaceAll('-', '/')
+      .replaceAll('.', '/')
+      .split('/')
+      .where((String part) => part.trim().isNotEmpty)
+      .toList();
+
+  if (parts.length != 3) {
+    return null;
+  }
+
+  final int? first = int.tryParse(parts[0]);
+  final int? second = int.tryParse(parts[1]);
+  final int? third = int.tryParse(parts[2]);
+  if (first == null || second == null || third == null) {
+    return null;
+  }
+
+  late final int year;
+  late final int month;
+  late final int day;
+
+  switch (dateFormat) {
+    case 'DD/MM/YYYY':
+      day = first;
+      month = second;
+      year = third;
+      break;
+    case 'YYYY-MM-DD':
+      year = first;
+      month = second;
+      day = third;
+      break;
+    case 'MM/DD/YYYY':
+    default:
+      month = first;
+      day = second;
+      year = third;
+      break;
+  }
+
+  final DateTime parsed = DateTime(year, month, day);
+  if (parsed.year != year || parsed.month != month || parsed.day != day) {
+    return null;
+  }
+  return parsed;
+}
+
 DateTime parseDateOnly(String raw) {
   if (raw.isEmpty) {
     final DateTime now = DateTime.now();

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:myworkhourstracker/job_profile.dart';
 import 'package:myworkhourstracker/job_profile_details_page.dart';
 import 'package:myworkhourstracker/main.dart';
+import 'package:myworkhourstracker/work_session.dart';
 
 void main() {
   testWidgets('current work session label updates for the active profile only', (
@@ -42,12 +43,15 @@ void main() {
           valueListenable: showDraftProfile,
           builder: (BuildContext context, bool showingDraftProfile, Widget? _) {
             return Scaffold(
-              body: JobProfileLongForm(
-                profile: showingDraftProfile
-                    ? profileWithDraft
-                    : profileWithoutDraft,
-                hasOpenDraftLoader: loadDraftState,
-                appSettings: testSettings,
+              body: SingleChildScrollView(
+                child: JobProfileLongForm(
+                  profile: showingDraftProfile
+                      ? profileWithDraft
+                      : profileWithoutDraft,
+                  hasOpenDraftLoader: loadDraftState,
+                  totalsSessionsLoader: (_) async => <WorkSession>[],
+                  appSettings: testSettings,
+                ),
               ),
             );
           },

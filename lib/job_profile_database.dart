@@ -14,7 +14,7 @@ class JobProfileDatabase {
   static const String _workSessionsTable = 'work_sessions';
   static const String _tempWorkSessionsTable = 'temp_work_sessions';
   static const String _dbPassword = 'myWorkHoursTracker_local_key_v1';
-  static const int _databaseVersion = 3;
+  static const int _databaseVersion = 4;
 
   Database? _database;
 
@@ -49,8 +49,8 @@ class JobProfileDatabase {
         name TEXT NOT NULL,
         pay_rate TEXT NOT NULL,
         pay_period TEXT NOT NULL,
-        pay_day_of_week TEXT,
-        pay_day_of_month INTEGER,
+        pay_period_end_day_of_week TEXT,
+        pay_period_end_day_of_month INTEGER,
         overtime_paid INTEGER NOT NULL,
         overtime_mode TEXT,
         overtime_threshold_hours INTEGER,
@@ -115,7 +115,45 @@ class JobProfileDatabase {
   }
 
   Future<void> _upgradeSchema(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 3) {
+    if (oldVersion < 4) {
+      // Migrate job_profiles table: rename pay_day_* columns to pay_period_end_*
+      await db.execute('''
+        CREATE TABLE ${_jobProfilesTable}_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          pay_rate TEXT NOT NULL,
+          pay_period TEXT NOT NULL,
+          pay_period_end_day_of_week TEXT,
+          pay_period_end_day_of_month INTEGER,
+          overtime_paid INTEGER NOT NULL,
+          overtime_mode TEXT,
+          overtime_threshold_hours INTEGER,
+          overtime_multiplier TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+      ''');
+
+      // Copy data from old table, mapping old column names to new ones
+      await db.execute('''
+        INSERT INTO ${_jobProfilesTable}_new (
+          id, name, pay_rate, pay_period, 
+          pay_period_end_day_of_week, pay_period_end_day_of_month,
+          overtime_paid, overtime_mode, overtime_threshold_hours, 
+          overtime_multiplier, created_at
+        )
+        SELECT 
+          id, name, pay_rate, pay_period,
+          pay_day_of_week, pay_day_of_month,
+          overtime_paid, overtime_mode, overtime_threshold_hours,
+          overtime_multiplier, created_at
+        FROM $_jobProfilesTable
+      ''');
+
+      // Drop old table and rename new one
+      await db.execute('DROP TABLE $_jobProfilesTable');
+      await db.execute('ALTER TABLE ${_jobProfilesTable}_new RENAME TO $_jobProfilesTable');
+
+      // Recreate other tables
       await db.execute('DROP TABLE IF EXISTS $_tempWorkSessionsTable');
       await db.execute('DROP TABLE IF EXISTS $_workSessionsTable');
 

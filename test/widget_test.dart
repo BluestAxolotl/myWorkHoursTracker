@@ -23,7 +23,7 @@ void main() {
       name: 'store clerk',
       payRate: 19.50,
       payPeriod: PayPeriod.weekly,
-      payDayOfWeek: Weekday.fri,
+      payPeriodEndDayOfWeek: Weekday.fri,
       overtimePaid: true,
       overtimeMode: OvertimeMode.byPayPeriod,
       overtimeThresholdHours: 40,
@@ -37,7 +37,7 @@ void main() {
     expect(parsed.name, 'store clerk');
     expect(parsed.payRate, 19.50);
     expect(parsed.payPeriod, PayPeriod.weekly);
-    expect(parsed.payDayOfWeek, Weekday.fri);
+    expect(parsed.payPeriodEndDayOfWeek, Weekday.fri);
     expect(parsed.overtimePaid, true);
     expect(parsed.overtimeMode, OvertimeMode.byPayPeriod);
     expect(parsed.overtimeThresholdHours, 40);
@@ -50,7 +50,7 @@ void main() {
       name: 'accountant',
       payRate: 3500.00,
       payPeriod: PayPeriod.monthly,
-      payDayOfMonth: 15,
+      payPeriodEndDayOfMonth: 15,
       overtimePaid: false,
     );
 
@@ -61,8 +61,8 @@ void main() {
     expect(parsed.name, 'accountant');
     expect(parsed.payRate, 3500.00);
     expect(parsed.payPeriod, PayPeriod.monthly);
-    expect(parsed.payDayOfMonth, 15);
-    expect(parsed.payDayOfWeek, isNull);
+    expect(parsed.payPeriodEndDayOfMonth, 15);
+    expect(parsed.payPeriodEndDayOfWeek, isNull);
     expect(parsed.overtimePaid, false);
   });
 }

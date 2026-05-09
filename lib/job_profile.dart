@@ -66,8 +66,8 @@ class JobProfile {
     required this.name,
     required this.payRate,
     required this.payPeriod,
-    this.payDayOfWeek,
-    this.payDayOfMonth,
+    this.payPeriodEndDayOfWeek,
+    this.payPeriodEndDayOfMonth,
     required this.overtimePaid,
     this.overtimeMode,
     this.overtimeThresholdHours,
@@ -78,8 +78,8 @@ class JobProfile {
   final String name;
   final double payRate;
   final PayPeriod payPeriod;
-  final Weekday? payDayOfWeek;
-  final int? payDayOfMonth;
+  final Weekday? payPeriodEndDayOfWeek;
+  final int? payPeriodEndDayOfMonth;
   final bool overtimePaid;
   final OvertimeMode? overtimeMode;
   final int? overtimeThresholdHours;
@@ -91,8 +91,8 @@ class JobProfile {
       'name': name,
       'pay_rate': payRate.toStringAsFixed(2),
       'pay_period': payPeriod.name,
-      'pay_day_of_week': payDayOfWeek?.name,
-      'pay_day_of_month': payDayOfMonth,
+      'pay_period_end_day_of_week': payPeriodEndDayOfWeek?.name,
+      'pay_period_end_day_of_month': payPeriodEndDayOfMonth,
       'overtime_paid': overtimePaid ? 1 : 0,
       'overtime_mode': overtimeMode?.name,
       'overtime_threshold_hours': overtimeThresholdHours,
@@ -105,8 +105,8 @@ class JobProfile {
     String? name,
     double? payRate,
     PayPeriod? payPeriod,
-    Weekday? payDayOfWeek,
-    int? payDayOfMonth,
+    Weekday? payPeriodEndDayOfWeek,
+    int? payPeriodEndDayOfMonth,
     bool? overtimePaid,
     OvertimeMode? overtimeMode,
     int? overtimeThresholdHours,
@@ -117,8 +117,8 @@ class JobProfile {
       name: name ?? this.name,
       payRate: payRate ?? this.payRate,
       payPeriod: payPeriod ?? this.payPeriod,
-      payDayOfWeek: payDayOfWeek ?? this.payDayOfWeek,
-      payDayOfMonth: payDayOfMonth ?? this.payDayOfMonth,
+      payPeriodEndDayOfWeek: payPeriodEndDayOfWeek ?? this.payPeriodEndDayOfWeek,
+      payPeriodEndDayOfMonth: payPeriodEndDayOfMonth ?? this.payPeriodEndDayOfMonth,
       overtimePaid: overtimePaid ?? this.overtimePaid,
       overtimeMode: overtimeMode ?? this.overtimeMode,
       overtimeThresholdHours:
@@ -136,13 +136,13 @@ class JobProfile {
         (PayPeriod period) => period.name == map['pay_period'],
         orElse: () => PayPeriod.weekly,
       ),
-      payDayOfWeek: map['pay_day_of_week'] == null
+      payPeriodEndDayOfWeek: map['pay_period_end_day_of_week'] == null
           ? null
           : Weekday.values.firstWhere(
-              (Weekday day) => day.name == map['pay_day_of_week'],
+              (Weekday day) => day.name == map['pay_period_end_day_of_week'],
               orElse: () => Weekday.mon,
             ),
-      payDayOfMonth: map['pay_day_of_month'] as int?,
+      payPeriodEndDayOfMonth: map['pay_period_end_day_of_month'] as int?,
       overtimePaid: (map['overtime_paid'] as int? ?? 0) == 1,
       overtimeMode: map['overtime_mode'] == null
           ? null
