@@ -206,6 +206,17 @@ class JobProfileTotalsViewModel extends ChangeNotifier {
 }
 
 class JobProfileTotalsCalculator {
+  static PeriodWindow currentPayPeriodWindow(
+    JobProfile profile,
+    DateTime referenceDate,
+  ) {
+    return _currentPayPeriodRange(profile, referenceDate).window;
+  }
+
+  static PeriodWindow currentYearWindow(DateTime referenceDate) {
+    return _currentYearRange(referenceDate).window;
+  }
+
   static List<PeriodWindow> buildSelectablePayPeriods(
     JobProfile profile,
     Iterable<WorkSession> sessions, {

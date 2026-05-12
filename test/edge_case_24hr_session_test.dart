@@ -42,11 +42,6 @@ void main() {
             ))
         .toList();
 
-    print('24-HOUR SESSION - SELECTABLE PERIODS:');
-    for (final label in labels) {
-      print('  $label');
-    }
-
     // The session on May 5 should end on May 6 (next day due to 24-hour interpretation)
     // Current period is 05/02 - 05/08, so it should be included
     expect(labels.any((l) => l.contains('05/02/2026 - 05/08/2026')), true,
@@ -91,11 +86,6 @@ void main() {
             ))
         .toList();
 
-    print('24-HOUR SESSION AT BOUNDARY - SELECTABLE PERIODS:');
-    for (final label in labels) {
-      print('  $label');
-    }
-
     // Session ends on 05/02, so current period should be included
     expect(labels.any((l) => l.contains('05/02/2026 - 05/08/2026')), true,
         reason: 'Current period should be selectable for 24-hour session ending in current period');
@@ -130,10 +120,6 @@ void main() {
       viewMode: TotalsViewMode.payPeriod,
       referenceDate: now,
     );
-
-    print('24-HOUR SESSION - TOTALS:');
-    print('  Total Hours: ${summary.totalHours}');
-    print('  Session Count: ${summary.sessionCount}');
 
     // Should compute without error and include the session
     expect(summary.sessionCount, 1, reason: 'Should count the 24-hour session');
