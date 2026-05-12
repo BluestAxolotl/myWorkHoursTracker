@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'create_edit_current_work_session_page.dart';
+import 'job_profile_calendar_section.dart';
 import 'job_profile.dart';
 import 'job_profile_database.dart';
 import 'job_profile_totals_view_model.dart';
@@ -53,9 +54,16 @@ class JobProfileLongForm extends StatefulWidget {
 class _JobProfileLongFormState extends State<JobProfileLongForm> {
   late final GlobalKey<_JobProfileTotalsSectionState> _totalsSectionKey =
       GlobalKey<_JobProfileTotalsSectionState>();
+  int _calendarRefreshToken = 0;
 
   Future<void> _onSessionSaved() async {
     await _totalsSectionKey.currentState?.refreshTotals();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _calendarRefreshToken++;
+    });
   }
 
   @override
@@ -80,6 +88,14 @@ class _JobProfileLongFormState extends State<JobProfileLongForm> {
             profile: widget.profile,
             appSettings: widget.appSettings,
             totalsSessionsLoader: widget.totalsSessionsLoader,
+          ),
+        if (profileId != null) const SizedBox(height: 16),
+        if (profileId != null)
+          JobProfileCalendarSection(
+            profile: widget.profile,
+            appSettings: widget.appSettings,
+            sessionsLoader: widget.totalsSessionsLoader,
+            sessionRefreshToken: _calendarRefreshToken,
           ),
         if (profileId != null) const SizedBox(height: 16),
         Text(
