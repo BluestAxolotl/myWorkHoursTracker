@@ -4,25 +4,27 @@ import 'main.dart';
 import 'work_session.dart';
 import 'work_session_view_model.dart';
 
-class CreateEditCurrentWorkSessionPage extends StatefulWidget {
-  const CreateEditCurrentWorkSessionPage({
+class CreateWorkSessionFromCalendarPage extends StatefulWidget {
+  const CreateWorkSessionFromCalendarPage({
     super.key,
     required this.jobProfileId,
     required this.jobProfileName,
     required this.appSettings,
+    required this.initialDate,
   });
 
   final int jobProfileId;
   final String jobProfileName;
   final AppSettings appSettings;
+  final DateTime initialDate;
 
   @override
-  State<CreateEditCurrentWorkSessionPage> createState() =>
-      _CreateEditCurrentWorkSessionPageState();
+  State<CreateWorkSessionFromCalendarPage> createState() =>
+      _CreateWorkSessionFromCalendarPageState();
 }
 
-class _CreateEditCurrentWorkSessionPageState
-    extends State<CreateEditCurrentWorkSessionPage> {
+class _CreateWorkSessionFromCalendarPageState
+    extends State<CreateWorkSessionFromCalendarPage> {
   WorkSessionViewModel? _viewModel;
   bool _isLoading = true;
   final TextEditingController _noteController = TextEditingController();
@@ -34,8 +36,9 @@ class _CreateEditCurrentWorkSessionPageState
   }
 
   Future<void> _loadViewModel() async {
-    final WorkSessionViewModel vm = await WorkSessionViewModel.create(
+    final WorkSessionViewModel vm = await WorkSessionViewModel.createForCalendar(
       jobProfileId: widget.jobProfileId,
+      initialDate: widget.initialDate,
     );
 
     if (!mounted) {
@@ -145,12 +148,55 @@ class _CreateEditCurrentWorkSessionPageState
     }
   }
 
-  Future<void> _saveAndExit(WorkSessionViewModel vm) async {
-    await vm.saveOnExit();
+  Future<void> _saveSession(WorkSessionViewModel vm) async {
+    if (!await vm.finishSession()) {
+      return;
+    }
+
     if (!mounted) {
       return;
     }
-    Navigator.of(context).pop(false);
+
+    Navigator.of(context).pop(vm.session.sessionDate);
+  }
+
+  List<Widget> _buildBreakFields(WorkSessionViewModel vm) {
+    final List<Widget> breaks = <Widget>[];
+
+    for (int i = 1; i <= vm.session.breakCount; i++) {
+      breaks.add(
+        _TimeFieldCard(
+          label: 'Break $i start',
+          value: displayTimeWithSetting(
+            _valueByKey(vm.session, 'break${i}StartTime'),
+            widget.appSettings.timeFormat,
+          ),
+          errorText: vm.errorFor('break${i}StartTime'),
+          onPick: () => _pickTime(vm, 'break${i}StartTime'),
+          onTimestamp: () => vm.setFieldToNow('break${i}StartTime'),
+          onUndo: vm.fieldChanged('break${i}StartTime')
+              ? () => vm.undoField('break${i}StartTime')
+              : null,
+        ),
+      );
+      breaks.add(
+        _TimeFieldCard(
+          label: 'Break $i end',
+          value: displayTimeWithSetting(
+            _valueByKey(vm.session, 'break${i}EndTime'),
+            widget.appSettings.timeFormat,
+          ),
+          errorText: vm.errorFor('break${i}EndTime'),
+          onPick: () => _pickTime(vm, 'break${i}EndTime'),
+          onTimestamp: () => vm.setFieldToNow('break${i}EndTime'),
+          onUndo: vm.fieldChanged('break${i}EndTime')
+              ? () => vm.undoField('break${i}EndTime')
+              : null,
+        ),
+      );
+    }
+
+    return breaks;
   }
 
   @override
@@ -165,20 +211,24 @@ class _CreateEditCurrentWorkSessionPageState
 
     return PopScope(
       canPop: !vm.isBusy,
-      onPopInvokedWithResult: (bool didPop, Object? _) async {
+      onPopInvokedWithResult: (bool didPop, Object? _) {
         if (didPop || vm.isBusy) {
           return;
         }
-        await _saveAndExit(vm);
+        Navigator.of(context).pop();
       },
       child: AnimatedBuilder(
         animation: vm,
         builder: (BuildContext context, Widget? _) {
           return Scaffold(
             appBar: AppBar(
-              title: Text(vm.hasOpenDraft ? 'Edit Current Work Session' : 'Create Current Work Session'),
+              title: const Text('Create Work Session'),
               leading: BackButton(
-                onPressed: vm.isBusy ? null : () => _saveAndExit(vm),
+                onPressed: vm.isBusy
+                    ? null
+                    : () {
+                        Navigator.of(context).pop();
+                      },
               ),
             ),
             body: AbsorbPointer(
@@ -212,7 +262,7 @@ class _CreateEditCurrentWorkSessionPageState
                           ? () => vm.undoField('clockInTime')
                           : null,
                     ),
-                    _buildBreakFields(vm),
+                    ..._buildBreakFields(vm),
                     if (vm.session.hasLunch) ...<Widget>[
                       _TimeFieldCard(
                         label: 'Lunch start',
@@ -277,7 +327,9 @@ class _CreateEditCurrentWorkSessionPageState
                           onPressed: vm.session.hasLunch
                               ? () => vm.setLunchEnabled(false)
                               : () => vm.setLunchEnabled(true),
-                          icon: Icon(vm.session.hasLunch ? Icons.remove_circle_outline : Icons.add_circle_outline),
+                          icon: Icon(vm.session.hasLunch
+                              ? Icons.remove_circle_outline
+                              : Icons.add_circle_outline),
                           label: Text(vm.session.hasLunch ? 'Remove lunch' : 'Add lunch'),
                         ),
                       ],
@@ -295,58 +347,13 @@ class _CreateEditCurrentWorkSessionPageState
                       ),
                       onChanged: vm.setNote,
                     ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: vm.isBusy
-                                ? null
-                                : () async {
-                                    final ScaffoldMessengerState messenger =
-                                        ScaffoldMessenger.of(context);
-                                    await vm.saveChanges();
-                                    if (!mounted) {
-                                      return;
-                                    }
-                                    messenger.showSnackBar(
-                                      const SnackBar(content: Text('Changes saved.')),
-                                    );
-                                  },
-                            child: const Text('Save changes'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: vm.isBusy
-                                ? null
-                                : () async {
-                                    final ScaffoldMessengerState messenger =
-                                        ScaffoldMessenger.of(context);
-                                    final NavigatorState navigator =
-                                        Navigator.of(context);
-                                    final bool done = await vm.finishSession();
-                                    if (!mounted) {
-                                      return;
-                                    }
-                                    if (done) {
-                                      messenger.showSnackBar(
-                                        const SnackBar(content: Text('Work session finished.')),
-                                      );
-                                      navigator.pop(true);
-                                    } else {
-                                      messenger.showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Please fix the highlighted inputs.'),
-                                        ),
-                                      );
-                                    }
-                                  },
-                            child: const Text('Finish session'),
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: vm.isBusy ? null : () => _saveSession(vm),
+                        child: const Text('Save work session'),
+                      ),
                     ),
                   ],
                 ),
@@ -357,42 +364,51 @@ class _CreateEditCurrentWorkSessionPageState
       ),
     );
   }
+}
 
-  Widget _buildBreakFields(WorkSessionViewModel vm) {
-    final List<Widget> widgets = <Widget>[];
-    for (int i = 1; i <= vm.session.breakCount; i++) {
-      widgets.add(
-        _TimeFieldCard(
-          label: 'Break $i start',
-          value: displayTimeWithSetting(
-            _valueByKey(vm.session, 'break${i}StartTime'),
-            widget.appSettings.timeFormat,
+class _DateFieldCard extends StatelessWidget {
+  const _DateFieldCard({
+    required this.label,
+    required this.value,
+    required this.onTap,
+    this.onUndo,
+    this.errorText,
+  });
+
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+  final VoidCallback? onUndo;
+  final String? errorText;
+
+  @override
+  Widget build(BuildContext context) {
+    return InputDecorator(
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+        errorText: errorText,
+      ),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: InkWell(
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Text(value),
+              ),
+            ),
           ),
-          errorText: vm.errorFor('break${i}StartTime'),
-          onPick: () => _pickTime(vm, 'break${i}StartTime'),
-          onTimestamp: () => vm.setFieldToNow('break${i}StartTime'),
-          onUndo: vm.fieldChanged('break${i}StartTime')
-              ? () => vm.undoField('break${i}StartTime')
-              : null,
-        ),
-      );
-      widgets.add(
-        _TimeFieldCard(
-          label: 'Break $i end',
-          value: displayTimeWithSetting(
-            _valueByKey(vm.session, 'break${i}EndTime'),
-            widget.appSettings.timeFormat,
-          ),
-          errorText: vm.errorFor('break${i}EndTime'),
-          onPick: () => _pickTime(vm, 'break${i}EndTime'),
-          onTimestamp: () => vm.setFieldToNow('break${i}EndTime'),
-          onUndo: vm.fieldChanged('break${i}EndTime')
-              ? () => vm.undoField('break${i}EndTime')
-              : null,
-        ),
-      );
-    }
-    return Column(children: widgets);
+          if (onUndo != null)
+            IconButton(
+              tooltip: 'Undo date change',
+              onPressed: onUndo,
+              icon: const Icon(Icons.undo),
+            ),
+        ],
+      ),
+    );
   }
 }
 
@@ -447,52 +463,6 @@ class _TimeFieldCard extends StatelessWidget {
               ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _DateFieldCard extends StatelessWidget {
-  const _DateFieldCard({
-    required this.label,
-    required this.value,
-    required this.onTap,
-    this.onUndo,
-    this.errorText,
-  });
-
-  final String label;
-  final String value;
-  final VoidCallback onTap;
-  final VoidCallback? onUndo;
-  final String? errorText;
-
-  @override
-  Widget build(BuildContext context) {
-    return InputDecorator(
-      decoration: InputDecoration(
-        labelText: label,
-        border: const OutlineInputBorder(),
-        errorText: errorText,
-      ),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: InkWell(
-              onTap: onTap,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Text(value),
-              ),
-            ),
-          ),
-          if (onUndo != null)
-            IconButton(
-              tooltip: 'Undo date change',
-              onPressed: onUndo,
-              icon: const Icon(Icons.undo),
-            ),
-        ],
       ),
     );
   }
