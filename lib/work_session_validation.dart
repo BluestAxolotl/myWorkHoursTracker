@@ -133,8 +133,9 @@ class WorkSessionValidation {
 
   static Map<String, String> validateAgainstExistingSessions(
     WorkSession session,
-    Iterable<WorkSession> existingSessions,
-  ) {
+    Iterable<WorkSession> existingSessions, {
+    int? excludeSessionId,
+  }) {
     final Map<String, String> errors = <String, String>{};
     final int? currentStartRaw = parseMinutes(session.clockInTime);
     final int? currentEndRaw = parseMinutes(session.clockOutTime);
@@ -156,6 +157,10 @@ class WorkSessionValidation {
     }
 
     for (final WorkSession existing in existingSessions) {
+      if (excludeSessionId != null && existing.id == excludeSessionId) {
+        continue;
+      }
+
       final int? existingStartRaw = parseMinutes(existing.clockInTime);
       final int? existingEndRaw = parseMinutes(existing.clockOutTime);
       if (existingStartRaw == null || existingEndRaw == null) {

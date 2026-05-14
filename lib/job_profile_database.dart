@@ -330,4 +330,18 @@ class JobProfileDatabase {
     final Map<String, Object?> values = session.toMap()..remove('id');
     await db.insert(_workSessionsTable, values);
   }
+
+  Future<void> updateFinalizedWorkSession(WorkSession session) async {
+    final Database db = await database;
+    if (session.id == null) {
+      throw ArgumentError('Cannot update a session without an ID');
+    }
+    final Map<String, Object?> values = session.toMap()..remove('id');
+    await db.update(
+      _workSessionsTable,
+      values,
+      where: 'id = ?',
+      whereArgs: <Object>[session.id!],
+    );
+  }
 }
