@@ -292,4 +292,53 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('8:00 PM - 6:00 AM'), findsOneWidget);
   });
+
+  testWidgets('tapping an empty calendar day shows detail view with create button', (
+    WidgetTester tester,
+  ) async {
+    const JobProfile profile = JobProfile(
+      id: 1,
+      name: 'Profile A',
+      payRate: 18.00,
+      payPeriod: PayPeriod.weekly,
+      payPeriodEndDayOfWeek: Weekday.fri,
+      overtimePaid: false,
+    );
+
+    Future<List<WorkSession>> loadSessions(int profileId) async {
+      return <WorkSession>[];
+    }
+
+    const AppSettings testSettings = AppSettings(
+      dateFormat: 'MM/DD/YYYY',
+      timeFormat: '12 hr',
+      currencySymbol: r'$',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: JobProfileCalendarSection(
+              profile: profile,
+              appSettings: testSettings,
+              sessionsLoader: loadSessions,
+              now: DateTime(2026, 5, 10),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Monthly').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('15').first);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DraggableScrollableSheet), findsOneWidget);
+    expect(find.text('Create work session'), findsOneWidget);
+  });
 }

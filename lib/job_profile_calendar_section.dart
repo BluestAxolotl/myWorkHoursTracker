@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'create_work_session_from_calendar_page.dart';
 import 'job_profile.dart';
 import 'job_profile_calendar_model.dart';
 import 'job_profile_calendar_view_model.dart';
@@ -13,6 +14,7 @@ class JobProfileCalendarSection extends StatefulWidget {
     required this.profile,
     required this.appSettings,
     this.sessionsLoader,
+    this.onSessionSaved,
     this.sessionRefreshToken = 0,
     this.now,
   });
@@ -20,6 +22,7 @@ class JobProfileCalendarSection extends StatefulWidget {
   final JobProfile profile;
   final AppSettings appSettings;
   final Future<List<WorkSession>> Function(int profileId)? sessionsLoader;
+  final Future<void> Function()? onSessionSaved;
   final int sessionRefreshToken;
   final DateTime? now;
 
@@ -416,9 +419,7 @@ class _DayRangeCalendar extends StatelessWidget {
             final bool hasSession = slices.isNotEmpty;
 
             return GestureDetector(
-              onTap: hasSession
-                  ? () => _showDayDetail(context, day, slices, timeFormat)
-                  : null,
+              onTap: () => _showDayDetail(context, day, slices, timeFormat),
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
@@ -556,6 +557,7 @@ void _showDayDetail(
   List<JobProfileCalendarSlice> slices,
   String timeFormat,
 ) {
+  final BuildContext parentContext = context;
   final ColorScheme colorScheme = Theme.of(context).colorScheme;
   final String dayLabel = DateFormat('EEEE, MMM d, yyyy').format(day);
 
@@ -590,8 +592,22 @@ void _showDayDetail(
               Expanded(
                 child: ListView.builder(
                   controller: scrollController,
-                  itemCount: slices.length,
+                  itemCount: slices.length + 1,
                   itemBuilder: (BuildContext context, int index) {
+                    if (index == slices.length) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            Navigator.of(context).pop();
+                            await _createSessionFromCalendar(parentContext, day);
+                          },
+                          icon: const Icon(Icons.add),
+                          label: const Text('Create work session'),
+                        ),
+                      );
+                    }
+
                     final JobProfileCalendarSlice slice = slices[index];
                     final WorkSession session = slice.session;
                     final Color background = slice.isOvertime ? colorScheme.errorContainer : colorScheme.primaryContainer;
@@ -662,6 +678,65 @@ void _showDayDetail(
       );
     },
   );
+}
+
+Future<void> _createSessionFromCalendar(BuildContext context, DateTime day) async {
+  final JobProfileCalendarSection? section =
+      context.findAncestorWidgetOfExactType<JobProfileCalendarSection>();
+  if (section == null || section.profile.id == null) {
+    return;
+  }
+
+  final int profileId = section.profile.id!;
+  final String profileName = section.profile.name;
+  final AppSettings appSettings = section.appSettings;
+
+  final DateTime? resultDate = await Navigator.of(context).push(
+    MaterialPageRoute<DateTime>(
+      builder: (BuildContext context) => CreateWorkSessionFromCalendarPage(
+        jobProfileId: profileId,
+        jobProfileName: profileName,
+        appSettings: appSettings,
+        initialDate: day,
+      ),
+    ),
+  );
+
+  if (!context.mounted) {
+    return;
+  }
+
+  if (resultDate != null) {
+    await section.onSessionSaved?.call();
+    if (!context.mounted) {
+      return;
+    }
+
+    final _JobProfileCalendarSectionState? state =
+        context.findAncestorStateOfType<_JobProfileCalendarSectionState>();
+    final JobProfileCalendarViewModel? viewModel = state?._viewModel;
+    if (viewModel != null) {
+      await viewModel.refreshCalendar();
+      if (!context.mounted) {
+        return;
+      }
+      final Map<String, List<JobProfileCalendarSlice>> slicesByDay =
+          buildCalendarSlicesByDay(section.profile, viewModel.sessions);
+      if (!_sameDay(resultDate, day)) {
+        final List<JobProfileCalendarSlice> newSlices =
+            slicesByDay[dateKey(resultDate)] ?? <JobProfileCalendarSlice>[];
+        if (newSlices.isNotEmpty && context.mounted) {
+          _showDayDetail(context, resultDate, newSlices, section.appSettings.timeFormat);
+        }
+      } else {
+        final List<JobProfileCalendarSlice> updatedSlices =
+            slicesByDay[dateKey(day)] ?? <JobProfileCalendarSlice>[];
+        if (updatedSlices.isNotEmpty && context.mounted) {
+          _showDayDetail(context, day, updatedSlices, section.appSettings.timeFormat);
+        }
+      }
+    }
+  }
 }
 
 

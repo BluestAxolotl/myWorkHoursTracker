@@ -95,6 +95,7 @@ class _JobProfileLongFormState extends State<JobProfileLongForm> {
             profile: widget.profile,
             appSettings: widget.appSettings,
             sessionsLoader: widget.totalsSessionsLoader,
+            onSessionSaved: _onSessionSaved,
             sessionRefreshToken: _calendarRefreshToken,
           ),
         if (profileId != null) const SizedBox(height: 16),
@@ -504,7 +505,8 @@ class _CurrentWorkSessionButtonState extends State<_CurrentWorkSessionButton> {
   }
 
   Future<void> _openCreateEditPage() async {
-    await Navigator.of(context).push<bool>(
+    final bool didFinalizeSession =
+        await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (BuildContext context) => CreateEditCurrentWorkSessionPage(
           jobProfileId: widget.profileId,
@@ -512,7 +514,7 @@ class _CurrentWorkSessionButtonState extends State<_CurrentWorkSessionButton> {
           appSettings: widget.appSettings,
         ),
       ),
-    );
+    ) ?? false;
 
     if (!mounted) {
       return;
@@ -522,8 +524,9 @@ class _CurrentWorkSessionButtonState extends State<_CurrentWorkSessionButton> {
       _hasDraftFuture = _loadHasDraft();
     });
 
-    // Notify parent to refresh totals
-    await widget.onSessionSaved?.call();
+    if (didFinalizeSession) {
+      await widget.onSessionSaved?.call();
+    }
   }
 
   @override

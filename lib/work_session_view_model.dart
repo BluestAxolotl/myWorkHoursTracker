@@ -67,6 +67,34 @@ class WorkSessionViewModel extends ChangeNotifier {
     );
   }
 
+  static Future<WorkSessionViewModel> createForCalendar({
+    required int jobProfileId,
+    required DateTime initialDate,
+    JobProfileDatabase? database,
+  }) async {
+    final JobProfileDatabase db = database ?? JobProfileDatabase.instance;
+    final WorkSession? mostRecent =
+        await db.getMostRecentFinalizedWorkSession(jobProfileId);
+
+    WorkSession base = WorkSession(
+      jobProfileId: jobProfileId,
+      sessionDate: DateTime(initialDate.year, initialDate.month, initialDate.day),
+      breakCount: mostRecent?.breakCount ?? 0,
+      hasLunch: mostRecent?.hasLunch ?? false,
+    );
+
+    if (base.breakCount < 0 || base.breakCount > maxBreakCount) {
+      base = base.copyWith(breakCount: 0);
+    }
+
+    return WorkSessionViewModel._(
+      jobProfileId: jobProfileId,
+      database: db,
+      session: base,
+      hasOpenDraft: false,
+    );
+  }
+
   WorkSession get session => _session;
 
   bool get hasOpenDraft => _hasOpenDraft;
