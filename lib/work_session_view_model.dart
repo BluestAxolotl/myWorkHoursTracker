@@ -13,6 +13,8 @@ class WorkSessionViewModel extends ChangeNotifier {
     required JobProfileDatabase database,
     required WorkSession session,
     required bool hasOpenDraft,
+    this.isEditMode = false,
+    this.isReadOnlyMode = false,
   })  : _session = session,
         _initialSession = session,
         _database = database,
@@ -20,6 +22,8 @@ class WorkSessionViewModel extends ChangeNotifier {
 
   final int jobProfileId;
   final JobProfileDatabase _database;
+  final bool isEditMode;
+  final bool isReadOnlyMode;
 
   WorkSession _session;
   WorkSession _initialSession;
@@ -92,6 +96,38 @@ class WorkSessionViewModel extends ChangeNotifier {
       database: db,
       session: base,
       hasOpenDraft: false,
+    );
+  }
+
+  static Future<WorkSessionViewModel> createForEdit({
+    required int jobProfileId,
+    required WorkSession sessionToEdit,
+    JobProfileDatabase? database,
+  }) async {
+    final JobProfileDatabase db = database ?? JobProfileDatabase.instance;
+
+    return WorkSessionViewModel._(
+      jobProfileId: jobProfileId,
+      database: db,
+      session: sessionToEdit,
+      hasOpenDraft: false,
+      isEditMode: true,
+    );
+  }
+
+  static Future<WorkSessionViewModel> createForReadOnly({
+    required int jobProfileId,
+    required WorkSession sessionToView,
+    JobProfileDatabase? database,
+  }) async {
+    final JobProfileDatabase db = database ?? JobProfileDatabase.instance;
+
+    return WorkSessionViewModel._(
+      jobProfileId: jobProfileId,
+      database: db,
+      session: sessionToView,
+      hasOpenDraft: false,
+      isReadOnlyMode: true,
     );
   }
 
@@ -284,6 +320,37 @@ class WorkSessionViewModel extends ChangeNotifier {
     }
   }
 
+  Future<bool> updateSession() async {
+    _errors.clear();
+
+    if (!_validateRequiredFields()) {
+      notifyListeners();
+      return false;
+    }
+
+    if (!_validateTimeOverlapsWithinSession()) {
+      notifyListeners();
+      return false;
+    }
+
+    if (!await _validateNoOverlapWithExistingSessions(excludeSessionId: _session.id)) {
+      notifyListeners();
+      return false;
+    }
+
+    _isBusy = true;
+    notifyListeners();
+
+    try {
+      await _database.updateFinalizedWorkSession(_session);
+      _initialSession = _session;
+      return true;
+    } finally {
+      _isBusy = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> saveOnExit() async {
     await saveChanges();
   }
@@ -435,12 +502,13 @@ class WorkSessionViewModel extends ChangeNotifier {
     return errors.isEmpty;
   }
 
-  Future<bool> _validateNoOverlapWithExistingSessions() async {
+  Future<bool> _validateNoOverlapWithExistingSessions({int? excludeSessionId}) async {
     final List<WorkSession> finalized =
         await _database.getFinalizedWorkSessionsForProfile(jobProfileId);
     final Map<String, String> errors = WorkSessionValidation.validateAgainstExistingSessions(
       _session,
       finalized,
+      excludeSessionId: excludeSessionId,
     );
     _errors.addAll(errors);
     return errors.isEmpty;

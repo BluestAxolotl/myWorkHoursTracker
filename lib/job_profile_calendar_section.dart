@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
 
 import 'create_work_session_from_calendar_page.dart';
+import 'create_edit_work_session_from_calendar_page.dart';
 import 'job_profile.dart';
 import 'job_profile_calendar_model.dart';
 import 'job_profile_calendar_view_model.dart';
@@ -556,6 +558,7 @@ void _showDayDetail(
   DateTime day,
   List<JobProfileCalendarSlice> slices,
   String timeFormat,
+  {String? statusMessage}
 ) {
   final BuildContext parentContext = context;
   final ColorScheme colorScheme = Theme.of(context).colorScheme;
@@ -586,90 +589,164 @@ void _showDayDetail(
                       '${slices.length} work session${slices.length != 1 ? 's' : ''}',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
+                    if (statusMessage != null) ...<Widget>[
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.secondaryContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          statusMessage,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSecondaryContainer,
+                              ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
               Expanded(
-                child: ListView.builder(
-                  controller: scrollController,
-                  itemCount: slices.length + 1,
-                  itemBuilder: (BuildContext context, int index) {
-                    if (index == slices.length) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
+                child: SlidableAutoCloseBehavior(
+                  child: ListView.builder(
+                    controller: scrollController,
+                    itemCount: slices.length + 1,
+                    itemBuilder: (BuildContext context, int index) {
+                      if (index == slices.length) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              Navigator.of(context).pop();
+                              await _createSessionFromCalendar(parentContext, day);
+                            },
+                            icon: const Icon(Icons.add),
+                            label: const Text('Create work session'),
+                          ),
+                        );
+                      }
+
+                      final JobProfileCalendarSlice slice = slices[index];
+                      final WorkSession session = slice.session;
+                      final Color background = slice.isOvertime ? colorScheme.errorContainer : colorScheme.primaryContainer;
+                      final Color foreground = slice.isOvertime ? colorScheme.onErrorContainer : colorScheme.onPrimaryContainer;
+
+                      final sessionTile = Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: GestureDetector(
+                          onTap: () async {
                             Navigator.of(context).pop();
-                            await _createSessionFromCalendar(parentContext, day);
+                            await _viewSessionFromCalendar(parentContext, session, day, slices, timeFormat);
                           },
-                          icon: const Icon(Icons.add),
-                          label: const Text('Create work session'),
-                        ),
-                      );
-                    }
-
-                    final JobProfileCalendarSlice slice = slices[index];
-                    final WorkSession session = slice.session;
-                    final Color background = slice.isOvertime ? colorScheme.errorContainer : colorScheme.primaryContainer;
-                    final Color foreground = slice.isOvertime ? colorScheme.onErrorContainer : colorScheme.onPrimaryContainer;
-
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: background,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: background,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
-                                Text(
-                                  '${displayTimeWithSetting(session.clockInTime, timeFormat)} - ${displayTimeWithSetting(session.clockOutTime, timeFormat)}',
-                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                        color: foreground,
-                                        fontWeight: FontWeight.w700,
-                                      ),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: <Widget>[
+                                    Text(
+                                      '${displayTimeWithSetting(session.clockInTime, timeFormat)} - ${displayTimeWithSetting(session.clockOutTime, timeFormat)}',
+                                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                            color: foreground,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                    Text(
+                                      '${slice.totalHours.toStringAsFixed(2)}h',
+                                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                            color: foreground,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                    ),
+                                  ],
                                 ),
-                                Text(
-                                  '${slice.totalHours.toStringAsFixed(2)}h',
-                                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                        color: foreground,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                ),
+                                if (slice.isOvertime)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8),
+                                    child: Text(
+                                      'Overtime',
+                                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                            color: foreground,
+                                          ),
+                                    ),
+                                  ),
+                                if (session.note.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8),
+                                    child: Text(
+                                      'Note: ${session.note}',
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                            color: foreground,
+                                          ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
                               ],
                             ),
-                            if (slice.isOvertime)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Text(
-                                  'Overtime',
-                                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                        color: foreground,
-                                      ),
+                          ),
+                        ),
+                      );
+
+                      return Slidable(
+                        key: ValueKey<int?>(session.id),
+                        startActionPane: ActionPane(
+                          motion: const ScrollMotion(),
+                          extentRatio: 0.22,
+                          children: <Widget>[
+                            CustomSlidableAction(
+                              onPressed: (_) async {
+                                // Edit button
+                                Navigator.of(context).pop();
+                              await _editSessionFromCalendar(parentContext, session, day, slices, timeFormat);
+                              },
+                              backgroundColor: Theme.of(context).colorScheme.primary,
+                              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                              padding: const EdgeInsets.all(10),
+                              borderRadius: BorderRadius.circular(8),
+                              child: const Center(
+                                child: SizedBox.square(
+                                  dimension: 24,
+                                  child: Icon(Icons.edit),
                                 ),
                               ),
-                            if (session.note.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Text(
-                                  'Note: ${session.note}',
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: foreground,
-                                      ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
+                            ),
                           ],
                         ),
-                      ),
-                    );
-                  },
+                        endActionPane: ActionPane(
+                          motion: const ScrollMotion(),
+                          extentRatio: 0.22,
+                          children: <Widget>[
+                            CustomSlidableAction(
+                              onPressed: (_) {
+                                // Delete button - nonfunctional for now
+                              },
+                              backgroundColor: Theme.of(context).colorScheme.error,
+                              foregroundColor: Theme.of(context).colorScheme.onError,
+                              padding: const EdgeInsets.all(10),
+                              borderRadius: BorderRadius.circular(8),
+                              child: const Center(
+                                child: SizedBox.square(
+                                  dimension: 24,
+                                  child: Icon(Icons.delete),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        child: sessionTile,
+                      );
+                    },
+                  ),
                 ),
               ),
             ],
@@ -726,17 +803,143 @@ Future<void> _createSessionFromCalendar(BuildContext context, DateTime day) asyn
         final List<JobProfileCalendarSlice> newSlices =
             slicesByDay[dateKey(resultDate)] ?? <JobProfileCalendarSlice>[];
         if (newSlices.isNotEmpty && context.mounted) {
-          _showDayDetail(context, resultDate, newSlices, section.appSettings.timeFormat);
+            _showDayDetail(
+              context,
+              resultDate,
+              newSlices,
+              section.appSettings.timeFormat,
+              statusMessage: 'Work session updated.',
+            );
         }
       } else {
         final List<JobProfileCalendarSlice> updatedSlices =
             slicesByDay[dateKey(day)] ?? <JobProfileCalendarSlice>[];
         if (updatedSlices.isNotEmpty && context.mounted) {
-          _showDayDetail(context, day, updatedSlices, section.appSettings.timeFormat);
+            _showDayDetail(
+              context,
+              day,
+              updatedSlices,
+              section.appSettings.timeFormat,
+              statusMessage: 'Work session updated.',
+            );
         }
       }
     }
   }
 }
 
+Future<void> _editSessionFromCalendar(
+  BuildContext context,
+  WorkSession session,
+  DateTime day,
+  List<JobProfileCalendarSlice> originalSlices,
+  String timeFormat,
+) async {
+  final JobProfileCalendarSection? section =
+      context.findAncestorWidgetOfExactType<JobProfileCalendarSection>();
+  if (section == null || section.profile.id == null) {
+    return;
+  }
+
+  final int profileId = section.profile.id!;
+  final String profileName = section.profile.name;
+  final AppSettings appSettings = section.appSettings;
+
+  final DateTime? resultDate = await Navigator.of(context).push(
+    MaterialPageRoute<DateTime>(
+      builder: (BuildContext context) => CreateEditWorkSessionFromCalendarPage(
+        jobProfileId: profileId,
+        jobProfileName: profileName,
+        appSettings: appSettings,
+        sessionToEdit: session,
+      ),
+    ),
+  );
+
+  if (!context.mounted) {
+    return;
+  }
+
+  if (resultDate != null) {
+    await section.onSessionSaved?.call();
+    if (!context.mounted) {
+      return;
+    }
+
+    final _JobProfileCalendarSectionState? state =
+        context.findAncestorStateOfType<_JobProfileCalendarSectionState>();
+    final JobProfileCalendarViewModel? viewModel = state?._viewModel;
+    if (viewModel != null) {
+      await viewModel.refreshCalendar();
+      if (!context.mounted) {
+        return;
+      }
+      final Map<String, List<JobProfileCalendarSlice>> slicesByDay =
+          buildCalendarSlicesByDay(section.profile, viewModel.sessions);
+      final List<JobProfileCalendarSlice> updatedSlices =
+          slicesByDay[dateKey(resultDate)] ?? <JobProfileCalendarSlice>[];
+      if (updatedSlices.isNotEmpty && context.mounted) {
+        _showDayDetail(
+          context,
+          resultDate,
+          updatedSlices,
+          section.appSettings.timeFormat,
+          statusMessage: 'Work session updated.',
+        );
+      }
+    }
+  } else {
+    // User canceled without saving - reopen the detail sheet
+    if (context.mounted) {
+      _showDayDetail(
+        context,
+        day,
+        originalSlices,
+        timeFormat,
+      );
+    }
+  }
+}
+
+Future<void> _viewSessionFromCalendar(
+  BuildContext context,
+  WorkSession session,
+  DateTime day,
+  List<JobProfileCalendarSlice> originalSlices,
+  String timeFormat,
+) async {
+  final JobProfileCalendarSection? section =
+      context.findAncestorWidgetOfExactType<JobProfileCalendarSection>();
+  if (section == null || section.profile.id == null) {
+    return;
+  }
+
+  final int profileId = section.profile.id!;
+  final String profileName = section.profile.name;
+  final AppSettings appSettings = section.appSettings;
+
+  await Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (BuildContext context) => CreateEditWorkSessionFromCalendarPage(
+        jobProfileId: profileId,
+        jobProfileName: profileName,
+        appSettings: appSettings,
+        sessionToEdit: session,
+        readOnlyMode: true,
+      ),
+    ),
+  );
+
+  if (!context.mounted) {
+    return;
+  }
+
+  // User exited read-only view - reopen the detail sheet
+  _showDayDetail(
+    context,
+    day,
+    originalSlices,
+    timeFormat,
+  );
+}
 
