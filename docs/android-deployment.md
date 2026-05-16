@@ -1,10 +1,6 @@
 # Android Deployment
 
-This project currently targets Android only. For the two deployment goals you mentioned, the repo does not need a major code change.
-
 ## 1) Sideloading on Android phones
-
-For sideloading, build an APK and share it with testers.
 
 ### Build an APK
 ```bash
@@ -18,10 +14,6 @@ flutter build apk --release
 ```bash
 adb install -r build/app/outputs/flutter-apk/app-release.apk
 ```
-
-### Notes
-- The current Android release build uses debug signing, so this is fine for sideloading and internal testing.
-- If you later want Play Store distribution, add a proper release signing configuration.
 
 ## 2) Developer testing on a computer
 
