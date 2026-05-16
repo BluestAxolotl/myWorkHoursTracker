@@ -16,6 +16,7 @@ Non-Android Flutter platform folders were intentionally removed from this reposi
 - Sidebar settings access (gear icon) regardless of profile count
 - Last profile deletion keeps user on the main app screen
 - Combined currency search-and-selection field in the settings screen
+- SQLCipher database encryption with a unique per-install key generated on first app launch, stored securely in Android Keystore
 
 For implementation details, see [docs/app-settings-feature.md](docs/app-settings-feature.md).
 
