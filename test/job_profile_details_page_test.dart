@@ -72,6 +72,102 @@ void main() {
     expect(find.text('Edit Current Work Session'), findsNothing);
   });
 
+  testWidgets('totals pay period updates when the profile pay period changes', (
+    WidgetTester tester,
+  ) async {
+    final JobProfile weeklyProfile = JobProfile(
+      id: 1,
+      name: 'Profile A',
+      payRate: 18.00,
+      payPeriod: PayPeriod.weekly,
+      payPeriodEndDayOfWeek: Weekday.fri,
+      overtimePaid: false,
+    );
+    final JobProfile biweeklyProfile = weeklyProfile.copyWith(
+      payPeriod: PayPeriod.biweekly,
+    );
+
+    final ValueNotifier<JobProfile> activeProfile = ValueNotifier<JobProfile>(weeklyProfile);
+
+    Future<List<WorkSession>> loadSessions(int profileId) async {
+      return <WorkSession>[
+        WorkSession(
+          jobProfileId: profileId,
+          sessionDate: DateTime(2026, 5, 9),
+          clockInTime: '08:00',
+          clockOutTime: '10:00',
+        ),
+      ];
+    }
+
+    const AppSettings testSettings = AppSettings(
+      dateFormat: 'MM/DD/YYYY',
+      timeFormat: '12 hr',
+      currencySymbol: r'$',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ValueListenableBuilder<JobProfile>(
+          valueListenable: activeProfile,
+          builder: (BuildContext context, JobProfile profile, Widget? _) {
+            return Scaffold(
+              body: SingleChildScrollView(
+                child: JobProfileLongForm(
+                  profile: profile,
+                  totalsSessionsLoader: loadSessions,
+                  appSettings: testSettings,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final Finder totalsCard = find.widgetWithText(Card, 'Totals');
+    expect(
+      find.descendant(
+        of: totalsCard,
+        matching: find.text('Pay period: 05/09/2026 - 05/15/2026'),
+      ),
+      findsOneWidget,
+    );
+
+    activeProfile.value = biweeklyProfile;
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: totalsCard,
+        matching: find.text('Pay period: 05/02/2026 - 05/15/2026'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.descendant(of: totalsCard, matching: find.text('Search by date')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('05/02/2026 - 05/15/2026 (Current)'), findsWidgets);
+    expect(find.text('05/09/2026 - 05/15/2026 (Current)'), findsNothing);
+
+    await tester.tap(find.text('05/02/2026 - 05/15/2026 (Current)').first);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: totalsCard,
+        matching: find.text('Pay period: 05/02/2026 - 05/15/2026'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('calendar refreshes when the refresh token changes', (
     WidgetTester tester,
   ) async {

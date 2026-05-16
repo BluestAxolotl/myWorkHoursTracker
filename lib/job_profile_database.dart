@@ -231,6 +231,21 @@ class JobProfileDatabase {
     return db.insert(_jobProfilesTable, profile.toMap());
   }
 
+  Future<int> updateJobProfile(JobProfile profile) async {
+    final int? id = profile.id;
+    if (id == null) {
+      throw ArgumentError('Cannot update a job profile without an id.');
+    }
+
+    final Database db = await database;
+    return db.update(
+      _jobProfilesTable,
+      profile.toMap(),
+      where: 'id = ?',
+      whereArgs: <Object>[id],
+    );
+  }
+
   Future<int> deleteJobProfile(int id) async {
     final Database db = await database;
     return db.transaction<int>((Transaction txn) async {

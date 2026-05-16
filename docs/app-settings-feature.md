@@ -64,3 +64,6 @@ and prompts the user to create one in the sidebar
 - Settings are intended to apply globally across job profiles.
 - Currency selection now uses a single autocomplete field instead of a separate search box and drop-down.
 - If SharedPreferences retrieval fails, the app uses fallback defaults and continues with a safe first-run flow.
+ - The app's job profile and totals UI behavior was recently tightened:
+   - The totals section is rebuilt when a `JobProfile`'s pay-period or overtime settings change (the section is keyed to the full profile settings) to avoid stale totals after edits.
+   - Calendar navigation advances whole pay-period windows (weekly/biweekly) so the visible windows remain properly aligned when cycling.

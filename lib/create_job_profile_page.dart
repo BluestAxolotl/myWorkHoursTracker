@@ -6,7 +6,9 @@ import 'job_profile.dart';
 import 'job_profile_database.dart';
 
 class CreateJobProfilePage extends StatefulWidget {
-  const CreateJobProfilePage({super.key});
+  const CreateJobProfilePage({super.key, this.initialProfile});
+
+  final JobProfile? initialProfile;
 
   @override
   State<CreateJobProfilePage> createState() => _CreateJobProfilePageState();
@@ -34,11 +36,35 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
   bool? _overtimePaid;
   OvertimeMode? _overtimeMode;
 
+  bool get _isEditing => widget.initialProfile?.id != null;
+
   @override
   void initState() {
     super.initState();
     _nameFocusNode.addListener(_handleNameBlurValidation);
     _overtimeThresholdController.addListener(_handleOvertimeThresholdChanged);
+    _populateFromInitialProfile();
+  }
+
+  void _populateFromInitialProfile() {
+    final JobProfile? profile = widget.initialProfile;
+    if (profile == null) {
+      _overtimePaid = false;
+      return;
+    }
+
+    _nameController.text = profile.name;
+    _payRateController.text = profile.payRate.toStringAsFixed(2);
+    _payPeriod = profile.payPeriod;
+    _payDayOfWeek = profile.payPeriodEndDayOfWeek;
+    _payDayOfMonth = profile.payPeriodEndDayOfMonth;
+    _payDayOfMonthController.text = profile.payPeriodEndDayOfMonth?.toString() ?? '';
+    _overtimePaid = profile.overtimePaid;
+    _overtimeMode = profile.payPeriod == PayPeriod.daily
+        ? OvertimeMode.daily
+        : profile.overtimeMode;
+    _overtimeThresholdController.text = profile.overtimeThresholdHours?.toString() ?? '';
+    _overtimeMultiplierController.text = profile.overtimeMultiplier?.toStringAsFixed(2) ?? '';
   }
 
   @override
@@ -232,6 +258,7 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
     final double? overtimeMultiplier = overtimePaid ? double.tryParse(_overtimeMultiplierController.text.trim()) : null;
 
     final JobProfile profile = JobProfile(
+      id: widget.initialProfile?.id,
       name: _nameController.text.trim(),
       payRate: payRate,
       payPeriod: _payPeriod!,
@@ -248,11 +275,27 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
     });
 
     try {
-      final int newId = await JobProfileDatabase.instance.createJobProfile(profile);
+      final int affectedRows;
+      final int profileId;
+      if (_isEditing) {
+        affectedRows = await JobProfileDatabase.instance.updateJobProfile(profile);
+        profileId = profile.id!;
+      } else {
+        profileId = await JobProfileDatabase.instance.createJobProfile(profile);
+        affectedRows = 1;
+      }
+
       if (!mounted) {
         return;
       }
-      Navigator.of(context).pop<JobProfile>(profile.copyWith(id: newId));
+      if (affectedRows == 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not save profile. Please try again.')),
+        );
+        return;
+      }
+
+      Navigator.of(context).pop<JobProfile>(profile.copyWith(id: profileId));
     } catch (_) {
       if (!mounted) {
         return;
@@ -310,7 +353,7 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
     final bool showOvertimeMultiplierInput = showOvertimeThresholdInput;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Job Profile')),
+      appBar: AppBar(title: Text(_isEditing ? 'Edit Job Profile' : 'Create Job Profile')),
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -509,7 +552,11 @@ class _CreateJobProfilePageState extends State<CreateJobProfilePage> {
                 const SizedBox(height: 24),
                 FilledButton(
                   onPressed: _isSubmitting ? null : _handleCreate,
-                  child: Text(_isSubmitting ? 'Creating...' : 'Create'),
+                  child: Text(
+                    _isSubmitting
+                        ? (_isEditing ? 'Saving...' : 'Creating...')
+                        : (_isEditing ? 'Save Changes' : 'Create'),
+                  ),
                 ),
               ],
             ),

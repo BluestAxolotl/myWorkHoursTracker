@@ -56,6 +56,21 @@ class _JobProfileLongFormState extends State<JobProfileLongForm> {
       GlobalKey<_JobProfileTotalsSectionState>();
   int _calendarRefreshToken = 0;
 
+  String _profileSettingsSignature(JobProfile profile) {
+    return [
+      profile.id?.toString() ?? 'null',
+      profile.name,
+      profile.payRate.toStringAsFixed(2),
+      profile.payPeriod.name,
+      profile.payPeriodEndDayOfWeek?.name ?? 'null',
+      profile.payPeriodEndDayOfMonth?.toString() ?? 'null',
+      profile.overtimePaid.toString(),
+      profile.overtimeMode?.name ?? 'null',
+      profile.overtimeThresholdHours?.toString() ?? 'null',
+      profile.overtimeMultiplier?.toStringAsFixed(2) ?? 'null',
+    ].join('|');
+  }
+
   Future<void> _onSessionSaved() async {
     await _totalsSectionKey.currentState?.refreshTotals();
     if (!mounted) {
@@ -64,6 +79,15 @@ class _JobProfileLongFormState extends State<JobProfileLongForm> {
     setState(() {
       _calendarRefreshToken++;
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant JobProfileLongForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!jobProfileSettingsEqual(oldWidget.profile, widget.profile)) {
+      _totalsSectionKey.currentState?.refreshTotals();
+      _calendarRefreshToken++;
+    }
   }
 
   @override
@@ -83,11 +107,14 @@ class _JobProfileLongFormState extends State<JobProfileLongForm> {
           ),
         if (profileId != null) const SizedBox(height: 16),
         if (profileId != null)
-          _JobProfileTotalsSection(
-            key: _totalsSectionKey,
-            profile: widget.profile,
-            appSettings: widget.appSettings,
-            totalsSessionsLoader: widget.totalsSessionsLoader,
+          KeyedSubtree(
+            key: ValueKey<String>(_profileSettingsSignature(widget.profile)),
+            child: _JobProfileTotalsSection(
+              key: _totalsSectionKey,
+              profile: widget.profile,
+              appSettings: widget.appSettings,
+              totalsSessionsLoader: widget.totalsSessionsLoader,
+            ),
           ),
         if (profileId != null) const SizedBox(height: 16),
         if (profileId != null)
@@ -98,52 +125,6 @@ class _JobProfileLongFormState extends State<JobProfileLongForm> {
             onSessionSaved: _onSessionSaved,
             sessionRefreshToken: _calendarRefreshToken,
           ),
-        if (profileId != null) const SizedBox(height: 16),
-        Text(
-          'Job Profile Summary',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        const SizedBox(height: 16),
-        _DetailRow(label: 'Profile ID', value: '${widget.profile.id ?? '-'}'),
-        _DetailRow(label: 'Name', value: widget.profile.name),
-        _DetailRow(label: 'Pay Rate', value: widget.profile.formattedPayRate),
-        _DetailRow(
-          label: 'Pay Period',
-          value: payPeriodLabel(widget.profile.payPeriod),
-        ),
-        _DetailRow(
-          label: 'Pay Period End',
-          value: widget.profile.payPeriod == PayPeriod.daily
-              ? 'N/A'
-              : widget.profile.payPeriod == PayPeriod.monthly
-                  ? (widget.profile.payPeriodEndDayOfMonth?.toString() ?? 'N/A')
-                  : (widget.profile.payPeriodEndDayOfWeek == null
-                      ? 'N/A'
-                      : weekdayLabel(widget.profile.payPeriodEndDayOfWeek!)),
-        ),
-        const Divider(height: 32),
-        _DetailRow(
-          label: 'Overtime',
-          value: widget.profile.overtimePaid ? 'Paid' : 'Unpaid',
-        ),
-        _DetailRow(
-          label: 'Overtime Mode',
-          value: widget.profile.overtimeMode == null
-              ? 'N/A'
-              : overtimeModeLabel(widget.profile.overtimeMode!),
-        ),
-        _DetailRow(
-          label: 'Hours Before Overtime',
-          value: widget.profile.overtimeThresholdHours?.toString() ?? 'N/A',
-        ),
-        _DetailRow(
-          label: 'Overtime Multiplier',
-          value: widget.profile.formattedOvertimeMultiplier ?? 'N/A',
-        ),
-        const SizedBox(height: 24),
-        const Text(
-          'Work sessions for this profile can be added next on this long-scroll page.',
-        ),
       ],
     );
   }
@@ -250,7 +231,7 @@ class _JobProfileTotalsSectionState extends State<_JobProfileTotalsSection> {
     );
 
     if (selected != null) {
-      vm.setPayPeriodReferenceDate(selected.start);
+      vm.setPayPeriodReferenceDate(selected.end);
     }
   }
 
@@ -305,7 +286,7 @@ class _JobProfileTotalsSectionState extends State<_JobProfileTotalsSection> {
   @override
   void didUpdateWidget(covariant _JobProfileTotalsSection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.profile.id != widget.profile.id) {
+    if (!jobProfileSettingsEqual(oldWidget.profile, widget.profile)) {
       _viewModel?.removeListener(_onVmChanged);
       _viewModel?.dispose();
       _viewModel = null;

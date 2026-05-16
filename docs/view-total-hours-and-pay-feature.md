@@ -4,7 +4,7 @@
 Provide a concise totals summary for a `JobProfile` showing total hours worked and computed pay. The summary supports two modes — pay-period (default) and yearly — and applies `JobProfile` overtime rules (daily or by-pay-period) when computing overtime pay.
 
 ## Placement
-- Displayed on the `JobProfile` details page beneath the Create/Edit Current Work Session control and above the job profile settings.
+- Displayed on the `JobProfile` details page beneath the Create/Edit Current Work Session control and above the calendar section.
 
 ## UI Behavior
 - Card shows:
@@ -57,6 +57,8 @@ Recent implementation details / changes
 - Field renames: `payDayOfWeek` → `payPeriodEndDayOfWeek`, `payDayOfMonth` → `payPeriodEndDayOfMonth` in `lib/job_profile.dart` and associated `toMap()`/`fromMap()` keys updated (`pay_period_end_day_of_week`, `pay_period_end_day_of_month`).
 - Database migration: `lib/job_profile_database.dart` now migrates existing `pay_day_of_week` / `pay_day_of_month` columns to the new names during an upgrade; database version was bumped to `4` to trigger the migration path for existing installations.
 - Selectable-period builder: `JobProfileTotalsCalculator.buildSelectablePayPeriods()` always includes the current window and deduplicates windows; `buildAllPayPeriods()` loop condition was fixed to include windows whose start is on or before the latest session end date (prevents missing recent windows).
+ - Calendar navigation and pay-period stepping: calendar arrows now advance or rewind by entire pay-period windows using the `nextPayPeriodWindow` / `previousPayPeriodWindow` helpers so weekly/biweekly windows remain aligned when cycling.
+ - Totals card rebuild behavior: the totals section is intentionally keyed to the full `JobProfile` settings (not just the profile id) so the totals view model and UI are recreated when pay-period or overtime settings change, preventing stale in-place totals after edits.
 - Dialogs and labels: selection dialogs simplified to `SimpleDialog`; form labels updated to "Pay period end day of the week" and "Pay period end day of the month (1-31)" in `lib/create_job_profile_page.dart`.
 - Auto-select helpers: `setCurrentPayPeriod()` and `setCurrentYear()` exist on the ViewModel and are wired to the UI toggle so the current period/year is auto-selected when toggling views.
 - Robustness: `PeriodWindow` implements value equality (start/end) so selectable lists dedupe correctly.

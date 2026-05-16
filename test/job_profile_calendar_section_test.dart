@@ -82,6 +82,54 @@ void main() {
     expect(find.text('Day: 05/10/2026'), findsOneWidget);
   });
 
+  testWidgets('calendar pay period arrows advance by whole biweekly windows', (
+    WidgetTester tester,
+  ) async {
+    const JobProfile profile = JobProfile(
+      id: 1,
+      name: 'Profile A',
+      payRate: 18.00,
+      payPeriod: PayPeriod.biweekly,
+      payPeriodEndDayOfWeek: Weekday.fri,
+      overtimePaid: false,
+    );
+
+    const AppSettings testSettings = AppSettings(
+      dateFormat: 'MM/DD/YYYY',
+      timeFormat: '12 hr',
+      currencySymbol: r'$',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: JobProfileCalendarSection(
+              profile: profile,
+              appSettings: testSettings,
+              sessionsLoader: (_) async => <WorkSession>[],
+              now: DateTime(2026, 5, 10),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pay period: 05/02/2026 - 05/15/2026'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.chevron_right));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pay period: 05/16/2026 - 05/29/2026'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.chevron_left));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pay period: 05/02/2026 - 05/15/2026'), findsOneWidget);
+  });
+
   testWidgets('calendar section shows a loading indicator before sessions load', (
     WidgetTester tester,
   ) async {

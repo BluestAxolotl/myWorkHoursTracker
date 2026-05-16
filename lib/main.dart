@@ -298,6 +298,33 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Future<void> _openEditJobProfile(JobProfile profile) async {
+    final int? id = profile.id;
+    if (id == null) {
+      return;
+    }
+
+    final JobProfile? updated = await Navigator.of(context).push<JobProfile>(
+      MaterialPageRoute<JobProfile>(
+        builder: (BuildContext context) => CreateJobProfilePage(initialProfile: profile),
+      ),
+    );
+
+    if (updated == null) {
+      return;
+    }
+
+    await _refreshProfilesFromDb();
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _selectedProfileId = updated.id;
+    });
+  }
+
   Future<void> _deleteProfileById(int id) async {
     final int index = _jobProfiles.indexWhere((JobProfile profile) => profile.id == id);
     if (index == -1) {
@@ -517,7 +544,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: <Widget>[
                           CustomSlidableAction(
                             onPressed: (_) {
-                              // Edit button - nonfunctional for now
+                              _openEditJobProfile(profile);
                             },
                             backgroundColor: Theme.of(context).colorScheme.primary,
                             foregroundColor: Theme.of(context).colorScheme.onPrimary,

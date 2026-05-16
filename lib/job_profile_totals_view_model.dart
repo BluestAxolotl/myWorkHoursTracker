@@ -217,23 +217,74 @@ class JobProfileTotalsCalculator {
     return _currentYearRange(referenceDate).window;
   }
 
+  static PeriodWindow nextPayPeriodWindow(JobProfile profile, PeriodWindow window) {
+    return _nextWindow(profile, window);
+  }
+
+  static PeriodWindow previousPayPeriodWindow(JobProfile profile, PeriodWindow window) {
+    return _previousWindow(profile, window);
+  }
+
   static List<PeriodWindow> buildSelectablePayPeriods(
     JobProfile profile,
     Iterable<WorkSession> sessions, {
     DateTime? now,
   }) {
     final DateTime currentDate = _dateOnly(now ?? DateTime.now());
-    final List<PeriodWindow> selectablePeriods = <PeriodWindow>[
-      _currentPayPeriodRange(profile, currentDate).window,
-    ];
-
-    for (final PeriodWindow period in buildAllPayPeriods(profile, sessions)) {
-      if (!selectablePeriods.contains(period)) {
-        selectablePeriods.add(period);
-      }
+    final List<PeriodWindow> selectablePeriods = buildAllPayPeriods(
+      profile,
+      sessions,
+      now: currentDate,
+    );
+    final PeriodWindow currentWindow = _currentPayPeriodRange(profile, currentDate).window;
+    if (!selectablePeriods.contains(currentWindow)) {
+      selectablePeriods.insert(0, currentWindow);
     }
 
     return selectablePeriods;
+  }
+
+  static List<PeriodWindow> buildAllPayPeriods(
+    JobProfile profile,
+    Iterable<WorkSession> sessions, {
+    DateTime? now,
+  }) {
+    if (sessions.isEmpty) {
+      return <PeriodWindow>[];
+    }
+
+    final DateTime currentDate = _dateOnly(now ?? DateTime.now());
+    final PeriodWindow currentWindow = _currentPayPeriodRange(profile, currentDate).window;
+    final DateTime earliest = sessions
+        .map((WorkSession s) => _sessionEndDate(s))
+        .reduce((DateTime a, DateTime b) => a.isBefore(b) ? a : b);
+    final DateTime latest = sessions
+        .map((WorkSession s) => _sessionEndDate(s))
+        .reduce((DateTime a, DateTime b) => a.isAfter(b) ? a : b);
+
+    final List<PeriodWindow> periods = <PeriodWindow>[currentWindow];
+
+    PeriodWindow back = currentWindow;
+    while (true) {
+      final PeriodWindow previous = _previousWindow(profile, back);
+      if (previous.end.isBefore(earliest)) {
+        break;
+      }
+      periods.insert(0, previous);
+      back = previous;
+    }
+
+    PeriodWindow forward = currentWindow;
+    while (true) {
+      final PeriodWindow next = _nextWindow(profile, forward);
+      if (next.start.isAfter(latest)) {
+        break;
+      }
+      periods.add(next);
+      forward = next;
+    }
+
+    return periods;
   }
 
   static List<int> buildSelectableYears(
@@ -250,32 +301,6 @@ class JobProfileTotalsCalculator {
     }
 
     return selectableYears;
-  }
-
-  static List<PeriodWindow> buildAllPayPeriods(
-    JobProfile profile,
-    Iterable<WorkSession> sessions,
-  ) {
-    if (sessions.isEmpty) {
-      return <PeriodWindow>[];
-    }
-
-    final DateTime earliest = sessions
-        .map((WorkSession s) => _sessionEndDate(s))
-        .reduce((DateTime a, DateTime b) => a.isBefore(b) ? a : b);
-    final DateTime latest = sessions
-        .map((WorkSession s) => _sessionEndDate(s))
-        .reduce((DateTime a, DateTime b) => a.isAfter(b) ? a : b);
-
-    final List<PeriodWindow> periods = <PeriodWindow>[];
-    _DateRange current = _currentPayPeriodRange(profile, earliest);
-    // Include any window that starts on or before the latest session end date.
-    while (!current.window.start.isAfter(latest)) {
-      periods.add(current.window);
-      current = _DateRange(window: _nextWindow(profile, current.window));
-    }
-
-    return periods;
   }
 
   static List<int> buildAllYears(Iterable<WorkSession> sessions) {
@@ -376,6 +401,17 @@ class JobProfileTotalsCalculator {
       return const JobProfileTotalsSummary.empty();
     }
 
+    if (profile.overtimePaid &&
+        profile.overtimeMode == OvertimeMode.daily &&
+        profile.overtimeThresholdHours != null &&
+        profile.overtimeMultiplier != null) {
+      return _calculateDailyOvertimeSummary(
+        profile: profile,
+        sessions: relevantSessions,
+        periodCount: viewMode == TotalsViewMode.payPeriod ? 1 : _buildYearWindows(profile, referenceDate).length,
+      );
+    }
+
     final Map<PeriodWindow, _PeriodAggregate> aggregates = <PeriodWindow, _PeriodAggregate>{};
     for (final WorkSession session in relevantSessions) {
       final DateTime endDate = _sessionEndDate(session);
@@ -451,6 +487,43 @@ class JobProfileTotalsCalculator {
       overtimeHours: overtimeHours,
       regularPay: regularHours * profile.payRate,
       overtimePay: overtimeHours * profile.payRate * overtimeMultiplier,
+    );
+  }
+
+  static JobProfileTotalsSummary _calculateDailyOvertimeSummary({
+    required JobProfile profile,
+    required Iterable<WorkSession> sessions,
+    required int periodCount,
+  }) {
+    double totalHours = 0;
+    double regularHours = 0;
+    double overtimeHours = 0;
+    double regularPay = 0;
+    double overtimePay = 0;
+    final double overtimeMultiplier = profile.overtimeMultiplier ?? 1;
+    final double thresholdHours = profile.overtimeThresholdHours?.toDouble() ?? 0;
+
+    for (final WorkSession session in sessions) {
+      final double sessionHours = session.totalWorkHours ?? 0;
+      final double sessionRegularHours = min(sessionHours, thresholdHours);
+      final double sessionOvertimeHours = max(0, sessionHours - thresholdHours);
+
+      totalHours += sessionHours;
+      regularHours += sessionRegularHours;
+      overtimeHours += sessionOvertimeHours;
+      regularPay += sessionRegularHours * profile.payRate;
+      overtimePay += sessionOvertimeHours * profile.payRate * overtimeMultiplier;
+    }
+
+    return JobProfileTotalsSummary(
+      totalHours: totalHours,
+      regularHours: regularHours,
+      overtimeHours: overtimeHours,
+      regularPay: regularPay,
+      overtimePay: overtimePay,
+      totalPay: regularPay + overtimePay,
+      sessionCount: sessions.length,
+      periodCount: periodCount,
     );
   }
 
