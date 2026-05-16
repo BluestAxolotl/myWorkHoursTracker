@@ -39,6 +39,15 @@ flutter analyze
 flutter test
 ```
 
+## Android Deployment
+
+This project is Android-only, so deployment is typically one of two paths:
+
+1. Sideload an APK onto a phone for testers.
+2. Run the app in an Android emulator on a developer machine.
+
+See [docs/android-deployment.md](docs/android-deployment.md) for the exact commands and notes, including an automated GitHub Actions workflow to produce signed AAB/APK artifacts.
+
 ## Recent Fixes (branch: delete-work-session-from-calendar)
 
 - Daily overtime is now computed per-session so switching to daily overtime retroactively recalculates past sessions.
