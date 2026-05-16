@@ -67,7 +67,7 @@ class _JobProfileCalendarSectionState extends State<JobProfileCalendarSection> {
   @override
   void didUpdateWidget(covariant JobProfileCalendarSection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.profile.id != widget.profile.id) {
+    if (!jobProfileSettingsEqual(oldWidget.profile, widget.profile)) {
       _viewModel?.removeListener(_onViewModelChanged);
       _viewModel?.dispose();
       _viewModel = null;

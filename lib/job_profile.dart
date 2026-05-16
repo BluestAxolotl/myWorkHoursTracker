@@ -165,3 +165,16 @@ class JobProfile {
     return max(23, payPeriodDays(payPeriod) * 24);
   }
 }
+
+bool jobProfileSettingsEqual(JobProfile a, JobProfile b) {
+  return a.id == b.id &&
+      a.name == b.name &&
+      a.payRate == b.payRate &&
+      a.payPeriod == b.payPeriod &&
+      a.payPeriodEndDayOfWeek == b.payPeriodEndDayOfWeek &&
+      a.payPeriodEndDayOfMonth == b.payPeriodEndDayOfMonth &&
+      a.overtimePaid == b.overtimePaid &&
+      a.overtimeMode == b.overtimeMode &&
+      a.overtimeThresholdHours == b.overtimeThresholdHours &&
+      a.overtimeMultiplier == b.overtimeMultiplier;
+}

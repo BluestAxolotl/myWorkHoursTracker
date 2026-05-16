@@ -225,9 +225,10 @@ class JobProfileCalendarViewModel extends ChangeNotifier {
     switch (_viewMode) {
       case JobProfileCalendarViewMode.payPeriod:
         final PeriodWindow window = JobProfileTotalsCalculator.currentPayPeriodWindow(profile, _referenceDate);
-        nextDate = direction < 0
-            ? window.start.subtract(const Duration(days: 1))
-            : window.end.add(const Duration(days: 1));
+        final PeriodWindow movedWindow = direction < 0
+            ? JobProfileTotalsCalculator.previousPayPeriodWindow(profile, window)
+            : JobProfileTotalsCalculator.nextPayPeriodWindow(profile, window);
+        nextDate = movedWindow.end;
       case JobProfileCalendarViewMode.daily:
         nextDate = _referenceDate.add(Duration(days: direction));
       case JobProfileCalendarViewMode.monthly:

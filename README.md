@@ -37,3 +37,11 @@ For implementation details, see [docs/app-settings-feature.md](docs/app-settings
 flutter analyze
 flutter test
 ```
+
+## Recent Fixes (branch: delete-work-session-from-calendar)
+
+- Daily overtime is now computed per-session so switching to daily overtime retroactively recalculates past sessions.
+- Calendar arrows advance full pay-period windows (weekly/biweekly) to keep windows aligned when navigating.
+- Totals section is rebuilt when `JobProfile` settings change to avoid stale totals after edits.
+- Removed footer text from the Job Profile details page.
+

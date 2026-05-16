@@ -17,6 +17,7 @@ This feature enables users to create and manage job profiles, where each profile
 
 ### Data Persistence
 - When a job profile is created, it is saved to the database via `JobProfileDatabase.instance.createJobProfile()`.
+- When an existing job profile is edited, the same form saves back through `JobProfileDatabase.instance.updateJobProfile()`.
 - When a job profile is deleted, all associated work sessions are automatically deleted via foreign key cascade.
 
 ## Create Job Profile Form
@@ -24,6 +25,15 @@ This feature enables users to create and manage job profiles, where each profile
 ### Form Access
 - The Create Job Profile page is accessed via `CreateJobProfilePage`.
 - Returns a `JobProfile` object on successful creation via `Navigator.pop()`.
+- The same page is also reused for editing an existing profile when launched with an initial `JobProfile`.
+
+### Edit Behavior
+- Editing a job profile allows the user to change the same settings they entered during creation: name, pay rate, pay period, pay-day fields, and overtime configuration.
+- Saving an edit updates the existing database row rather than creating a new profile.
+- After a profile is edited, the sidebar, totals, and calendar views refresh to reflect the updated pay-period and overtime rules.
+ - After a profile is edited, the sidebar, totals, and calendar views refresh to reflect the updated pay-period and overtime rules.
+ - Note: the totals section is keyed to the full `JobProfile` settings (not only the profile id) so the totals view model and UI are recreated when pay-period or overtime settings change. This ensures totals are not left in a stale state after edits.
+ - Note: when `overtimeMode` is set to `daily`, overtime is calculated per-session (each `WorkSession` is compared against the overtime threshold independently), so switching an existing profile to daily overtime will retroactively affect previously recorded sessions.
 
 ### Form Fields and Validation
 

@@ -116,6 +116,39 @@ void main() {
     expect(summary.totalPay, 475);
   });
 
+  test('daily overtime recalculates each session independently', () {
+    const JobProfile profile = JobProfile(
+      id: 1,
+      name: 'Store',
+      payRate: 10.0,
+      payPeriod: PayPeriod.weekly,
+      payPeriodEndDayOfWeek: Weekday.fri,
+      overtimePaid: true,
+      overtimeMode: OvertimeMode.daily,
+      overtimeThresholdHours: 8,
+      overtimeMultiplier: 1.5,
+    );
+
+    final List<WorkSession> sessions = <WorkSession>[
+      _session(date: DateTime(2026, 5, 5), clockIn: '08:00', clockOut: '20:00'),
+      _session(date: DateTime(2026, 5, 6), clockIn: '09:00', clockOut: '10:00'),
+    ];
+
+    final JobProfileTotalsSummary summary = JobProfileTotalsCalculator.calculate(
+      profile: profile,
+      sessions: sessions,
+      viewMode: TotalsViewMode.payPeriod,
+      referenceDate: DateTime(2026, 5, 6),
+    );
+
+    expect(summary.totalHours, 13);
+    expect(summary.regularHours, 9);
+    expect(summary.overtimeHours, 4);
+    expect(summary.regularPay, 90);
+    expect(summary.overtimePay, 60);
+    expect(summary.totalPay, 150);
+  });
+
   test('yearly view sums multiple pay periods in the current year', () {
     const JobProfile profile = JobProfile(
       id: 1,
