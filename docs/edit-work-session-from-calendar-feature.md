@@ -7,10 +7,10 @@
 
 ## What was implemented
 
-This feature allows workers to view and edit existing work sessions directly from the calendar detail view. Workers can:
+This feature allows workers to view, edit, and delete existing work sessions directly from the calendar detail view. Workers can:
 - **Tap** a work session to view it in read-only mode
 - **Swipe left** on a work session to reveal an Edit button for editing
-- **Swipe right** on a work session to reveal a Delete button (placeholder, nonfunctional for now)
+- **Swipe right** on a work session to reveal a Delete button
 
 ### 1) Accessing the flows
 
@@ -27,8 +27,11 @@ This feature allows workers to view and edit existing work sessions directly fro
 - A "Cancel" button exits without saving.
 
 #### Delete flow (swipe right)
-- Swiping right on a work session reveals a Delete button (currently nonfunctional).
-- Reserved for future implementation.
+- Swiping right on a work session reveals a Delete button.
+- Tapping the Delete button opens a confirmation dialog.
+- If the worker confirms, the work session is deleted from the database.
+- The calendar detail view and totals are refreshed immediately after deletion.
+- The detail view is reopened with the updated work-session list for that day.
 
 ### Swipe action guidance
 - The calendar detail view header displays a helper message: "Swipe right to delete, left to edit"
@@ -82,6 +85,13 @@ The form displays the same fields in all modes:
 - The calendar detail view reopens and shows the updated session.
 - The worker is back to viewing the calendar day details.
 
+#### After successful delete
+- The session is removed from the `work_sessions` table.
+- The calendar detail view and totals are refreshed.
+- A success message displays: "Work session deleted." (shown in a secondary-colored container in the calendar detail view header when the day still has remaining sessions).
+- The detail view reopens with the deleted session removed from the list.
+- If the deleted session was the last session for that day, the day detail still reopens and shows the create button for that date.
+
 #### Exiting without saving
 - If the worker taps Cancel in the confirmation dialog, no changes are persisted.
 - If the worker taps the back button or dismisses the form, the calendar detail view reopens showing the same session data.
@@ -97,7 +107,7 @@ The form displays the same fields in all modes:
 
 ### 6) Swipe action buttons
 - **Edit button** (left swipe): Blue (primary color), edit icon, reveals when swiping left
-- **Delete button** (right swipe): Red (error color), delete icon, reveals when swiping right (nonfunctional placeholder)
+- **Delete button** (right swipe): Red (error color), delete icon, reveals when swiping right and opens confirmation
 - Each button auto-closes when tapped (or when another swipe action is opened)
 - Buttons are sized and padded for safe interaction
 
@@ -105,6 +115,7 @@ The form displays the same fields in all modes:
 
 ### Database changes
 - Added `updateFinalizedWorkSession()` method to `JobProfileDatabase` that updates an existing work session by its ID.
+- Added `deleteFinalizedWorkSession()` method to `JobProfileDatabase` that removes an existing work session by its ID.
 
 ### View model changes
 - Added `createForEdit()` factory method to `WorkSessionViewModel` to load an existing session for editing.
@@ -129,6 +140,7 @@ The form displays the same fields in all modes:
 - Each session row has a left-swipe action pane (startActionPane) with an Edit button and a right-swipe action pane (endActionPane) with a Delete button.
 - Added `_viewSessionFromCalendar()` function that opens sessions in read-only mode when tapped.
 - Added `_editSessionFromCalendar()` function that opens sessions in edit mode when the Edit swipe button is tapped.
+- Added `_deleteSessionFromCalendar()` function that confirms deletion, removes the session from the database, and refreshes calendar/totals state.
 - Sessions are wrapped in `SlidableAutoCloseBehavior` to enforce single-open swipe action behavior.
 - Added confirmation dialog in `_saveSession()` that asks "Save changes?" before saving edits in edit mode.
 - The detail view reopens after successful save or cancel, showing the updated or original session data respectively.
@@ -144,6 +156,7 @@ The form displays the same fields in all modes:
 
 - `lib/job_profile_database.dart`
   - Added `updateFinalizedWorkSession()` method
+  - Added `deleteFinalizedWorkSession()` method
 
 - `lib/work_session_view_model.dart`
   - Added `isEditMode` flag to constructor
@@ -173,12 +186,14 @@ The form displays the same fields in all modes:
   - Wrapped session containers in `Slidable` widgets with left-swipe (startActionPane) and right-swipe (endActionPane) action panes
   - Added `_viewSessionFromCalendar()` function that opens sessions in read-only mode when tapped
   - Added `_editSessionFromCalendar()` function that navigates to edit mode when swipe Edit button is tapped
+  - Added `_deleteSessionFromCalendar()` function that confirms and deletes sessions from the calendar detail view
   - Session tiles now both tappable (for read-only) and swipeable (for edit/delete actions)
   - Swipe actions wrapped in `SlidableAutoCloseBehavior` to enforce single-open behavior
   - Edit swipe button uses primary color with edit icon
-  - Delete swipe button uses error color with delete icon (nonfunctional placeholder)
+  - Delete swipe button uses error color with delete icon
   - Both buttons auto-close when tapped
   - Calendar detail view reopens after successful edit save or cancel, preserving original session data on cancel
+  - Calendar detail view reopens after successful delete with the deleted session removed from the list
   - Success message displayed inline in detail sheet header as secondary-colored container
 
 - `pubspec.yaml`
@@ -187,11 +202,12 @@ The form displays the same fields in all modes:
 ## Notes
 
 - **Form modes**: The feature supports three distinct modes (read-only, edit, create) routed via factory methods on `WorkSessionViewModel`.
-- **Interaction flows**: Tapping sessions opens read-only view; swiping left opens edit mode; swiping right shows delete button (placeholder).
+- **Interaction flows**: Tapping sessions opens read-only view; swiping left opens edit mode; swiping right opens delete confirmation.
 - **No date changes**: Sessions cannot change their date in edit mode (date field is read-only).
 - **Self-exclusive validation**: The overlap validation correctly excludes the current session so it doesn't conflict with itself during edit.
 - **Confirmation on edit**: Edit mode requires confirmation dialog ("Save changes?") before saving; read-only and create modes do not.
 - **Inline feedback**: Success message displays inline in the calendar detail view header instead of snackbar, ensuring visibility on all exit paths.
+- **Delete behavior**: Confirmed deletes refresh the calendar and totals, then reopen the day detail view with the session removed.
 - **State preservation**: Exiting forms without saving (cancel, back button, dismiss) automatically reopens the calendar detail view with original session data.
 - **Code reuse**: All three modes (read-only, edit, create) use the same page component for consistency and maintainability.
 - **No drafts**: The calendar-edit flow does not persist drafts (consistent with calendar-create).
@@ -205,4 +221,5 @@ The form displays the same fields in all modes:
 - Swipe actions are tested through the flutter_slidable widget integration.
 - Read-only mode is tested by verifying form fields are disabled and no changes persist.
 - Edit mode confirmation dialog is tested by verifying the dialog appears and respects user choice (save/cancel).
+- Delete mode confirmation dialog is tested by verifying the dialog appears and respects user choice (delete/cancel).
 - Navigation flow is tested to ensure detail sheet reopens correctly after form exit (both save and cancel paths).
