@@ -7,8 +7,29 @@ import 'create_edit_work_session_from_calendar_page.dart';
 import 'job_profile.dart';
 import 'job_profile_calendar_model.dart';
 import 'job_profile_calendar_view_model.dart';
+import 'job_profile_database.dart';
 import 'main.dart';
 import 'work_session.dart';
+
+// Injectable DB delete function for testing.
+Future<int> Function(int id) deleteFinalizedWorkSessionFn =
+    (int id) => JobProfileDatabase.instance.deleteFinalizedWorkSession(id);
+
+// Performs the backend deletion and refreshes the calendar/totals state.
+// Returns the updated slices for the `day` after the delete.
+Future<List<JobProfileCalendarSlice>> performDeleteFinalizedWorkSession(
+  int sessionId,
+  JobProfileCalendarSection section,
+  JobProfileCalendarViewModel viewModel,
+  DateTime day,
+) async {
+  await deleteFinalizedWorkSessionFn(sessionId);
+  await section.onSessionSaved?.call();
+  await viewModel.refreshCalendar();
+  final Map<String, List<JobProfileCalendarSlice>> slicesByDay =
+      buildCalendarSlicesByDay(section.profile, viewModel.sessions);
+  return slicesByDay[dateKey(day)] ?? <JobProfileCalendarSlice>[];
+}
 
 class JobProfileCalendarSection extends StatefulWidget {
   const JobProfileCalendarSection({
@@ -707,7 +728,7 @@ void _showDayDetail(
                               onPressed: (_) async {
                                 // Edit button
                                 Navigator.of(context).pop();
-                              await _editSessionFromCalendar(parentContext, session, day, slices, timeFormat);
+                                await _editSessionFromCalendar(parentContext, session, day, slices, timeFormat);
                               },
                               backgroundColor: Theme.of(context).colorScheme.primary,
                               foregroundColor: Theme.of(context).colorScheme.onPrimary,
@@ -727,8 +748,14 @@ void _showDayDetail(
                           extentRatio: 0.22,
                           children: <Widget>[
                             CustomSlidableAction(
-                              onPressed: (_) {
-                                // Delete button - nonfunctional for now
+                              onPressed: (_) async {
+                                await _deleteSessionFromCalendar(
+                                  context,
+                                  parentContext,
+                                  session,
+                                  day,
+                                  timeFormat,
+                                );
                               },
                               backgroundColor: Theme.of(context).colorScheme.error,
                               foregroundColor: Theme.of(context).colorScheme.onError,
@@ -755,6 +782,85 @@ void _showDayDetail(
       );
     },
   );
+}
+
+Future<void> _deleteSessionFromCalendar(
+  BuildContext context,
+  BuildContext parentContext,
+  WorkSession session,
+  DateTime day,
+  String timeFormat,
+) async {
+  final JobProfileCalendarSection? section =
+      parentContext.findAncestorWidgetOfExactType<JobProfileCalendarSection>();
+  if (section == null || section.profile.id == null || session.id == null) {
+    return;
+  }
+
+  final NavigatorState nav = Navigator.of(parentContext);
+  final ScaffoldMessengerState scaffoldMessenger = ScaffoldMessenger.of(parentContext);
+  final _JobProfileCalendarSectionState? ancestorState = parentContext.findAncestorStateOfType<_JobProfileCalendarSectionState>();
+
+  final bool? confirmed = await showDialog<bool>(
+    context: parentContext,
+    builder: (BuildContext dialogContext) {
+      return AlertDialog(
+        title: const Text('Delete work session?'),
+        content: const Text(
+          'Delete this work session from the calendar and totals?',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (confirmed != true) {
+    return;
+  }
+
+    try {
+    final _JobProfileCalendarSectionState? state = ancestorState;
+    if (state == null) {
+      return;
+    }
+    final JobProfileCalendarViewModel? viewModel = state._viewModel;
+    if (viewModel == null) {
+      return;
+    }
+
+    final List<JobProfileCalendarSlice> updatedSlices = await performDeleteFinalizedWorkSession(
+      session.id!,
+      section,
+      viewModel,
+      day,
+    );
+
+    if (!state.mounted) {
+      return;
+    }
+
+    nav.pop();
+    _showDayDetail(
+      nav.context,
+      day,
+      updatedSlices,
+      timeFormat,
+      statusMessage: 'Work session deleted.',
+    );
+  } catch (_) {
+    scaffoldMessenger.showSnackBar(
+      const SnackBar(content: Text('Could not delete work session.')),
+    );
+  }
 }
 
 Future<void> _createSessionFromCalendar(BuildContext context, DateTime day) async {

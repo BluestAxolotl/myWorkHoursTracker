@@ -252,6 +252,15 @@ class JobProfileDatabase {
     });
   }
 
+  Future<int> deleteFinalizedWorkSession(int id) async {
+    final Database db = await database;
+    return db.delete(
+      _workSessionsTable,
+      where: 'id = ?',
+      whereArgs: <Object>[id],
+    );
+  }
+
   Future<bool> hasOpenWorkSessionDraft(int jobProfileId) async {
     final Database db = await database;
     final int? count = Sqflite.firstIntValue(
