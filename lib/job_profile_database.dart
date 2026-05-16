@@ -1,6 +1,7 @@
 import 'package:path/path.dart' as p;
 import 'package:sqflite_sqlcipher/sqflite.dart';
 
+import 'database_key_manager.dart';
 import 'job_profile.dart';
 import 'work_session.dart';
 
@@ -13,7 +14,6 @@ class JobProfileDatabase {
   static const String _jobProfilesTable = 'job_profiles';
   static const String _workSessionsTable = 'work_sessions';
   static const String _tempWorkSessionsTable = 'temp_work_sessions';
-  static const String _dbPassword = 'myWorkHoursTracker_local_key_v1';
   static const int _databaseVersion = 4;
 
   Database? _database;
@@ -25,9 +25,10 @@ class JobProfileDatabase {
 
     final String dbDirectory = await getDatabasesPath();
     final String path = p.join(dbDirectory, _databaseName);
+    final String password = await DatabaseKeyManager.getDatabasePassword(path);
     _database = await openDatabase(
       path,
-      password: _dbPassword,
+      password: password,
       version: _databaseVersion,
       onCreate: (Database db, int version) async {
         await _createSchema(db);
