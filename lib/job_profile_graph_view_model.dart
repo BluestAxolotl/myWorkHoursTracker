@@ -45,6 +45,8 @@ class JobProfileGraphViewModel extends ChangeNotifier {
 
   List<JobProfileGraphPoint> get points => _points;
 
+  DateTime get today => _today;
+
   bool get showOvertimeLine {
     return profile.overtimePaid &&
         profile.overtimeMode != null &&

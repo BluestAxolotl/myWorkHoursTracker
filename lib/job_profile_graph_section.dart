@@ -5,6 +5,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 
 import 'job_profile.dart';
 import 'job_profile_graph_view_model.dart';
+import 'job_profile_totals_view_model.dart';
 import 'main.dart';
 import 'work_session.dart';
 
@@ -79,7 +80,16 @@ class JobProfileGraphSectionState extends State<JobProfileGraphSection> {
   @override
   void didUpdateWidget(covariant JobProfileGraphSection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.now != widget.now) {
+    if (oldWidget.profile.id != widget.profile.id) {
+      _viewModel?.removeListener(_onVmChanged);
+      _viewModel?.dispose();
+      _viewModel = null;
+      setState(() {
+        _isLoading = true;
+        _selectedPointIndex = null;
+      });
+      _loadViewModel();
+    } else if (oldWidget.now != widget.now) {
       _viewModel?.updateNow(widget.now);
     }
   }
@@ -168,7 +178,7 @@ class JobProfileGraphSectionState extends State<JobProfileGraphSection> {
             ),
             const SizedBox(height: 10),
             Text(
-              _subtitle(vm),
+              _subtitle(vm, widget.appSettings.dateFormat),
               style: theme.textTheme.titleSmall,
             ),
             const SizedBox(height: 12),
@@ -272,10 +282,14 @@ class JobProfileGraphSectionState extends State<JobProfileGraphSection> {
     );
   }
 
-  String _subtitle(JobProfileGraphViewModel vm) {
+  String _subtitle(JobProfileGraphViewModel vm, String dateFormat) {
     switch (vm.viewMode) {
       case JobProfileGraphViewMode.payPeriod:
-        return 'Pay period trend';
+        final PeriodWindow window = JobProfileTotalsCalculator.currentPayPeriodWindow(
+          vm.profile,
+          vm.today,
+        );
+        return 'Pay period trend • ${formatDateRangeWithSetting(window.start, window.end, dateFormat)}';
       case JobProfileGraphViewMode.monthly:
         final DateTime reference = vm.points.isNotEmpty ? vm.points.first.window.start : DateTime.now();
         return 'Month trend • ${DateFormat('MMMM yyyy').format(reference)}';
