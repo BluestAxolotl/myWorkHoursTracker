@@ -81,10 +81,11 @@ class JobProfileTotalsViewModel extends ChangeNotifier {
   static Future<JobProfileTotalsViewModel> create({
     required JobProfile profile,
     DateTime? referenceDate,
+    DateTime? now,
     JobProfileDatabase? database,
     Future<List<WorkSession>> Function(int profileId)? sessionsLoader,
   }) async {
-    final DateTime resolvedReferenceDate = referenceDate ?? DateTime.now();
+    final DateTime resolvedReferenceDate = referenceDate ?? now ?? DateTime.now();
     final int? profileId = profile.id;
     final List<WorkSession> sessions;
 
@@ -452,6 +453,53 @@ class JobProfileTotalsCalculator {
       totalPay: regularPay + overtimePay,
       sessionCount: relevantSessions.length,
       periodCount: aggregates.length,
+    );
+  }
+
+  static JobProfileTotalsSummary calculateForWindow({
+    required JobProfile profile,
+    required Iterable<WorkSession> sessions,
+    required PeriodWindow window,
+  }) {
+    final List<WorkSession> relevantSessions = sessions
+        .where((WorkSession session) => window.contains(_sessionEndDate(session)))
+        .toList();
+
+    if (relevantSessions.isEmpty) {
+      return const JobProfileTotalsSummary.empty();
+    }
+
+    if (profile.overtimePaid &&
+        profile.overtimeMode == OvertimeMode.daily &&
+        profile.overtimeThresholdHours != null &&
+        profile.overtimeMultiplier != null) {
+      return _calculateDailyOvertimeSummary(
+        profile: profile,
+        sessions: relevantSessions,
+        periodCount: 1,
+      );
+    }
+
+    final _PeriodAggregate aggregate = _PeriodAggregate();
+    for (final WorkSession session in relevantSessions) {
+      aggregate.add(session);
+    }
+
+    final _PayBreakdown breakdown = _breakdownForPeriod(
+      profile: profile,
+      periodHours: aggregate.totalHours,
+      sessionCount: aggregate.sessionCount,
+    );
+
+    return JobProfileTotalsSummary(
+      totalHours: aggregate.totalHours,
+      regularHours: breakdown.regularHours,
+      overtimeHours: breakdown.overtimeHours,
+      regularPay: breakdown.regularPay,
+      overtimePay: breakdown.overtimePay,
+      totalPay: breakdown.regularPay + breakdown.overtimePay,
+      sessionCount: aggregate.sessionCount,
+      periodCount: 1,
     );
   }
 

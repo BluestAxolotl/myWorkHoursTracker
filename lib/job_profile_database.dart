@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:path/path.dart' as p;
 import 'package:sqflite_sqlcipher/sqflite.dart';
 
@@ -26,21 +28,71 @@ class JobProfileDatabase {
     final String dbDirectory = await getDatabasesPath();
     final String path = p.join(dbDirectory, _databaseName);
     final String password = await DatabaseKeyManager.getDatabasePassword(path);
-    _database = await openDatabase(
-      path,
-      password: password,
-      version: _databaseVersion,
-      onCreate: (Database db, int version) async {
-        await _createSchema(db);
-      },
-      onUpgrade: (Database db, int oldVersion, int newVersion) async {
-        await _upgradeSchema(db, oldVersion, newVersion);
-      },
-      onOpen: (Database db) async {
-        await db.execute('PRAGMA foreign_keys = ON;');
-      },
-    );
+    try {
+      _database = await openDatabase(
+        path,
+        password: password,
+        version: _databaseVersion,
+        onCreate: (Database db, int version) async {
+          await _createSchema(db);
+        },
+        onUpgrade: (Database db, int oldVersion, int newVersion) async {
+          await _upgradeSchema(db, oldVersion, newVersion);
+        },
+        onOpen: (Database db) async {
+          await db.execute('PRAGMA foreign_keys = ON;');
+        },
+      );
+      await _validateOpenedDatabase(_database!);
+    } on DatabaseException {
+      final Database? repairedDatabase = await DatabaseKeyManager.repairExistingDatabase(path);
+      if (repairedDatabase == null) {
+        if (await databaseExists(path)) {
+          await _quarantineUnreadableDatabase(path);
+          await DatabaseKeyManager.clearStoredDatabasePassword();
+          final String freshPassword = await DatabaseKeyManager.getDatabasePassword(path);
+          _database = await openDatabase(
+            path,
+            password: freshPassword,
+            version: _databaseVersion,
+            onCreate: (Database db, int version) async {
+              await _createSchema(db);
+            },
+            onUpgrade: (Database db, int oldVersion, int newVersion) async {
+              await _upgradeSchema(db, oldVersion, newVersion);
+            },
+            onOpen: (Database db) async {
+              await db.execute('PRAGMA foreign_keys = ON;');
+            },
+          );
+          await _validateOpenedDatabase(_database!);
+          return _database!;
+        }
+
+        rethrow;
+      }
+      _database = repairedDatabase;
+      await _validateOpenedDatabase(_database!);
+    }
     return _database!;
+  }
+
+  Future<void> _validateOpenedDatabase(Database db) async {
+    await db.rawQuery('SELECT 1;');
+  }
+
+  Future<void> _quarantineUnreadableDatabase(String path) async {
+    final File databaseFile = File(path);
+    if (!await databaseFile.exists()) {
+      return;
+    }
+
+    final String backupPath = '$path.unreadable_${DateTime.now().millisecondsSinceEpoch}';
+    try {
+      await databaseFile.rename(backupPath);
+    } on FileSystemException {
+      await databaseFile.delete();
+    }
   }
 
   Future<void> _createSchema(Database db) async {

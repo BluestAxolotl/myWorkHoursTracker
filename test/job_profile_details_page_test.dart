@@ -51,6 +51,7 @@ void main() {
                       : profileWithoutDraft,
                   hasOpenDraftLoader: loadDraftState,
                   totalsSessionsLoader: (_) async => <WorkSession>[],
+                  now: DateTime(2026, 5, 10),
                   appSettings: testSettings,
                 ),
               ),
@@ -116,6 +117,7 @@ void main() {
                 child: JobProfileLongForm(
                   profile: profile,
                   totalsSessionsLoader: loadSessions,
+                  now: DateTime(2026, 5, 10),
                   appSettings: testSettings,
                 ),
               ),
@@ -240,6 +242,155 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('8:00 AM - 9:00 AM'), findsOneWidget);
+  });
+
+  testWidgets('graph card defaults to pay period and switches modes', (
+    WidgetTester tester,
+  ) async {
+    const JobProfile profile = JobProfile(
+      id: 1,
+      name: 'Profile A',
+      payRate: 10.00,
+      payPeriod: PayPeriod.weekly,
+      payPeriodEndDayOfWeek: Weekday.fri,
+      overtimePaid: true,
+      overtimeMode: OvertimeMode.daily,
+      overtimeThresholdHours: 8,
+      overtimeMultiplier: 1.5,
+    );
+
+    Future<List<WorkSession>> loadSessions(int profileId) async {
+      return <WorkSession>[
+        WorkSession(
+          jobProfileId: profileId,
+          sessionDate: DateTime(2026, 5, 2),
+          clockInTime: '09:00',
+          clockOutTime: '19:00',
+        ),
+        WorkSession(
+          jobProfileId: profileId,
+          sessionDate: DateTime(2026, 5, 9),
+          clockInTime: '08:00',
+          clockOutTime: '20:00',
+        ),
+      ];
+    }
+
+    const AppSettings testSettings = AppSettings(
+      dateFormat: 'MM/DD/YYYY',
+      timeFormat: '12 hr',
+      currencySymbol: r'$',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: JobProfileLongForm(
+              profile: profile,
+              totalsSessionsLoader: loadSessions,
+              now: DateTime(2026, 5, 10),
+              appSettings: testSettings,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final Finder graphCard = find.widgetWithText(Card, 'Hours & earnings graph');
+    expect(graphCard, findsOneWidget);
+    await tester.ensureVisible(graphCard);
+    expect(
+      find.descendant(of: graphCard, matching: find.text('Pay period trend')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.descendant(of: graphCard, matching: find.text('Monthly')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(of: graphCard, matching: find.textContaining('Monthly trend')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.descendant(of: graphCard, matching: find.text('Yearly')));
+    await tester.pumpAndSettle();
+
+    expect(find.descendant(of: graphCard, matching: find.text('Yearly trend')), findsOneWidget);
+  });
+
+  testWidgets('graph point tap shows a detail box', (
+    WidgetTester tester,
+  ) async {
+    const JobProfile profile = JobProfile(
+      id: 1,
+      name: 'Profile A',
+      payRate: 10.00,
+      payPeriod: PayPeriod.weekly,
+      payPeriodEndDayOfWeek: Weekday.fri,
+      overtimePaid: true,
+      overtimeMode: OvertimeMode.daily,
+      overtimeThresholdHours: 8,
+      overtimeMultiplier: 1.5,
+    );
+
+    Future<List<WorkSession>> loadSessions(int profileId) async {
+      return <WorkSession>[
+        WorkSession(
+          jobProfileId: profileId,
+          sessionDate: DateTime(2026, 5, 2),
+          clockInTime: '09:00',
+          clockOutTime: '19:00',
+        ),
+        WorkSession(
+          jobProfileId: profileId,
+          sessionDate: DateTime(2026, 5, 9),
+          clockInTime: '08:00',
+          clockOutTime: '20:00',
+        ),
+      ];
+    }
+
+    const AppSettings testSettings = AppSettings(
+      dateFormat: 'MM/DD/YYYY',
+      timeFormat: '12 hr',
+      currencySymbol: r'$',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: JobProfileLongForm(
+              profile: profile,
+              totalsSessionsLoader: loadSessions,
+              now: DateTime(2026, 5, 10),
+              appSettings: testSettings,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final Finder graphCard = find.widgetWithText(Card, 'Hours & earnings graph');
+    expect(graphCard, findsOneWidget);
+    await tester.ensureVisible(graphCard);
+
+    final Finder chart = find.byKey(const ValueKey('job-profile-graph-chart'));
+    expect(chart, findsOneWidget);
+
+    final Rect chartRect = tester.getRect(chart);
+    await tester.tapAt(Offset(chartRect.left + 20, chartRect.top + 72));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('job-profile-graph-detail-box')), findsOneWidget);
+    expect(find.textContaining('Regular hours: 8.00h'), findsOneWidget);
+    expect(find.textContaining('Overtime hours: 4.00h'), findsOneWidget);
+    expect(find.textContaining('Total pay: \$140.00'), findsOneWidget);
   });
 
 }

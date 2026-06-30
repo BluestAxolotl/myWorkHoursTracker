@@ -4,6 +4,7 @@ import 'create_edit_current_work_session_page.dart';
 import 'job_profile_calendar_section.dart';
 import 'job_profile.dart';
 import 'job_profile_database.dart';
+import 'job_profile_graph_section.dart';
 import 'job_profile_totals_view_model.dart';
 import 'main.dart';
 import 'work_session.dart';
@@ -39,12 +40,14 @@ class JobProfileLongForm extends StatefulWidget {
     required this.profile,
     this.hasOpenDraftLoader,
     this.totalsSessionsLoader,
+    this.now,
     required this.appSettings,
   });
 
   final JobProfile profile;
   final Future<bool> Function(int profileId)? hasOpenDraftLoader;
   final Future<List<WorkSession>> Function(int profileId)? totalsSessionsLoader;
+  final DateTime? now;
   final AppSettings appSettings;
 
   @override
@@ -54,6 +57,8 @@ class JobProfileLongForm extends StatefulWidget {
 class _JobProfileLongFormState extends State<JobProfileLongForm> {
   late final GlobalKey<_JobProfileTotalsSectionState> _totalsSectionKey =
       GlobalKey<_JobProfileTotalsSectionState>();
+  late final GlobalKey<JobProfileGraphSectionState> _graphSectionKey =
+      GlobalKey<JobProfileGraphSectionState>();
   int _calendarRefreshToken = 0;
 
   String _profileSettingsSignature(JobProfile profile) {
@@ -73,6 +78,7 @@ class _JobProfileLongFormState extends State<JobProfileLongForm> {
 
   Future<void> _onSessionSaved() async {
     await _totalsSectionKey.currentState?.refreshTotals();
+    await _graphSectionKey.currentState?.refreshGraph();
     if (!mounted) {
       return;
     }
@@ -114,6 +120,7 @@ class _JobProfileLongFormState extends State<JobProfileLongForm> {
               profile: widget.profile,
               appSettings: widget.appSettings,
               totalsSessionsLoader: widget.totalsSessionsLoader,
+              now: widget.now,
             ),
           ),
         if (profileId != null) const SizedBox(height: 16),
@@ -124,6 +131,19 @@ class _JobProfileLongFormState extends State<JobProfileLongForm> {
             sessionsLoader: widget.totalsSessionsLoader,
             onSessionSaved: _onSessionSaved,
             sessionRefreshToken: _calendarRefreshToken,
+            now: widget.now,
+          ),
+        if (profileId != null) const SizedBox(height: 16),
+        if (profileId != null)
+          KeyedSubtree(
+            key: ValueKey<String>('graph|${_profileSettingsSignature(widget.profile)}'),
+            child: JobProfileGraphSection(
+              key: _graphSectionKey,
+              profile: widget.profile,
+              appSettings: widget.appSettings,
+              totalsSessionsLoader: widget.totalsSessionsLoader,
+              now: widget.now,
+            ),
           ),
       ],
     );
@@ -136,11 +156,13 @@ class _JobProfileTotalsSection extends StatefulWidget {
     required this.profile,
     required this.appSettings,
     this.totalsSessionsLoader,
+    this.now,
   });
 
   final JobProfile profile;
   final AppSettings appSettings;
   final Future<List<WorkSession>> Function(int profileId)? totalsSessionsLoader;
+  final DateTime? now;
 
   @override
   State<_JobProfileTotalsSection> createState() => _JobProfileTotalsSectionState();
@@ -159,6 +181,7 @@ class _JobProfileTotalsSectionState extends State<_JobProfileTotalsSection> {
   Future<void> _loadViewModel() async {
     final JobProfileTotalsViewModel vm = await JobProfileTotalsViewModel.create(
       profile: widget.profile,
+      now: widget.now,
       sessionsLoader: widget.totalsSessionsLoader,
     );
 
@@ -185,6 +208,7 @@ class _JobProfileTotalsSectionState extends State<_JobProfileTotalsSection> {
     final List<PeriodWindow> availablePeriods = JobProfileTotalsCalculator.buildSelectablePayPeriods(
       vm.profile,
       vm.sessions,
+      now: widget.now,
     );
 
     if (availablePeriods.isEmpty) {
@@ -218,6 +242,7 @@ class _JobProfileTotalsSectionState extends State<_JobProfileTotalsSection> {
                             vm.profile,
                             period,
                             widget.appSettings.dateFormat,
+                            now: widget.now,
                           ),
                         ),
                       ),
@@ -237,7 +262,10 @@ class _JobProfileTotalsSectionState extends State<_JobProfileTotalsSection> {
 
   Future<void> _selectYear() async {
     final JobProfileTotalsViewModel vm = _viewModel!;
-    final List<int> availableYears = JobProfileTotalsCalculator.buildSelectableYears(vm.sessions);
+    final List<int> availableYears = JobProfileTotalsCalculator.buildSelectableYears(
+      vm.sessions,
+      now: widget.now,
+    );
 
     if (availableYears.isEmpty) {
       if (mounted) {
@@ -266,7 +294,10 @@ class _JobProfileTotalsSectionState extends State<_JobProfileTotalsSection> {
                         onPressed: () =>
                             Navigator.of(context).pop(year),
                         child: Text(
-                          JobProfileTotalsCalculator.formatSelectableYearLabel(year),
+                          JobProfileTotalsCalculator.formatSelectableYearLabel(
+                            year,
+                            now: widget.now,
+                          ),
                         ),
                       ),
                   ],
