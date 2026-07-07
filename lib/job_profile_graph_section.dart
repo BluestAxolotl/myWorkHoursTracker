@@ -263,6 +263,7 @@ class JobProfileGraphSectionState extends State<JobProfileGraphSection> {
                                         width: layout.width,
                                         pointOffset: layout.pointOffsets[selectedPointIndex],
                                         currencySymbol: widget.appSettings.currencySymbol,
+                                        showOvertimeLine: vm.showOvertimeLine,
                                         onClose: () => _selectPoint(null),
                                       ),
                                   ],
@@ -629,6 +630,7 @@ class _GraphDetailBox extends StatelessWidget {
     required this.width,
     required this.pointOffset,
     required this.currencySymbol,
+    required this.showOvertimeLine,
     required this.onClose,
   });
 
@@ -636,6 +638,7 @@ class _GraphDetailBox extends StatelessWidget {
   final double width;
   final Offset pointOffset;
   final String currencySymbol;
+  final bool showOvertimeLine;
   final VoidCallback onClose;
 
   @override
@@ -686,12 +689,17 @@ class _GraphDetailBox extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 4),
-              Text('Regular hours: ${point.regularHours.toStringAsFixed(2)}h'),
-              Text('Overtime hours: ${point.overtimeHours.toStringAsFixed(2)}h'),
+              if (showOvertimeLine) ...<Widget>[
+                Text('Regular hours: ${point.regularHours.toStringAsFixed(2)}h'),
+                Text('Overtime hours: ${point.overtimeHours.toStringAsFixed(2)}h'),
+              ] else
+                Text('Hours: ${point.totalHours.toStringAsFixed(2)}h'),
               const SizedBox(height: 4),
-              Text('Regular pay: ${_formatMoney(point.regularPay, currencySymbol)}'),
-              if (point.overtimeHours > 0)
-                Text('Overtime pay: ${_formatMoney(point.overtimePay, currencySymbol)}'),
+              if (showOvertimeLine) ...<Widget>[
+                Text('Regular pay: ${_formatMoney(point.regularPay, currencySymbol)}'),
+                if (point.overtimeHours > 0)
+                  Text('Overtime pay: ${_formatMoney(point.overtimePay, currencySymbol)}'),
+              ],
               Text('Total pay: ${_formatMoney(point.totalPay, currencySymbol)}'),
             ],
           ),
