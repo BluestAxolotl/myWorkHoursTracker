@@ -16,6 +16,7 @@ class DatabaseKeyManager {
   static const String _legacySharedPrefKey = 'database_encryption_key_v1';
   static const String _legacyDbPassword = 'myWorkHoursTracker_local_key_v1';
   static const String _migrationFlagKey = 'database_key_migrated_to_secure_storage';
+  static const int _databaseVersion = 4;
 
   static final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
@@ -40,19 +41,48 @@ class DatabaseKeyManager {
       return migratedKey;
     }
 
-    // Check if this is an existing database that needs rekeying
     final bool dbExists = await databaseExists(dbPath);
     if (dbExists) {
-      return await _rekeyLegacyDatabase(dbPath);
+      return _legacyDbPassword;
     }
 
-    // Fresh install: generate and store a new key
+    // Fresh install: generate and store a new key.
     final String newKey = _generateKey();
     await _secureStorage.write(
       key: _secureStorageKey,
       value: newKey,
     );
     return newKey;
+  }
+
+  /// Clears any persisted encryption-key state so a fresh database can be created.
+  static Future<void> clearStoredDatabasePassword() async {
+    await _secureStorage.delete(key: _secureStorageKey);
+
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_legacySharedPrefKey);
+      await prefs.remove(_migrationFlagKey);
+    } catch (_) {
+      // Best-effort cleanup only.
+    }
+  }
+
+  /// Rekeys an existing database in place, trying legacy-encrypted first and
+  /// then falling back to a plaintext database.
+  static Future<Database?> repairExistingDatabase(String dbPath) async {
+    try {
+      return await _rekeyOpenedDatabase(
+        dbPath,
+        password: _legacyDbPassword,
+      );
+    } on DatabaseException {
+      try {
+        return await _rekeyOpenedDatabase(dbPath);
+      } on DatabaseException {
+        return null;
+      }
+    }
   }
 
   /// Migrates the encryption key from SharedPreferences to secure storage.
@@ -87,34 +117,34 @@ class DatabaseKeyManager {
     }
   }
 
-  /// Rekeyed an existing database that was encrypted with the old static password.
-  static Future<String> _rekeyLegacyDatabase(String dbPath) async {
+  /// Opens an existing database and rekeys it with a freshly generated key.
+  static Future<Database> _rekeyOpenedDatabase(
+    String dbPath, {
+    String? password,
+  }) async {
     final Database legacyDb = await openDatabase(
       dbPath,
-      password: _legacyDbPassword,
+      password: password,
+      version: _databaseVersion,
       onOpen: (Database db) async {
         await db.execute('PRAGMA foreign_keys = ON;');
       },
     );
 
-    try {
-      final String newKey = _generateKey();
+    final String newKey = _generateKey();
 
-      // Rekey the database to the new key
-      await legacyDb.execute(
-        "PRAGMA rekey = '${_escapeSqlCipherPassword(newKey)}';",
-      );
+    // Rekey the database to the new key.
+    await legacyDb.execute(
+      "PRAGMA rekey = '${_escapeSqlCipherPassword(newKey)}';",
+    );
 
-      // Store the new key securely
-      await _secureStorage.write(
-        key: _secureStorageKey,
-        value: newKey,
-      );
+    // Store the new key securely.
+    await _secureStorage.write(
+      key: _secureStorageKey,
+      value: newKey,
+    );
 
-      return newKey;
-    } finally {
-      await legacyDb.close();
-    }
+    return legacyDb;
   }
 
   /// Generates a cryptographically secure 32-byte database key.
