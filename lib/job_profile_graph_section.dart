@@ -168,18 +168,23 @@ class JobProfileGraphSectionState extends State<JobProfileGraphSection> {
                 ),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 12),
-                  child: Text('Month'),
+                  child: Text('Monthly'),
                 ),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 12),
-                  child: Text('Year'),
+                  child: Text('Yearly'),
                 ),
               ],
             ),
             const SizedBox(height: 10),
             Text(
-              _subtitle(vm, widget.appSettings.dateFormat),
+              _subtitleMain(vm),
               style: theme.textTheme.titleSmall,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _subtitleDetail(vm, widget.appSettings.dateFormat),
+              style: theme.textTheme.bodySmall,
             ),
             const SizedBox(height: 12),
             Row(
@@ -283,20 +288,31 @@ class JobProfileGraphSectionState extends State<JobProfileGraphSection> {
     );
   }
 
-  String _subtitle(JobProfileGraphViewModel vm, String dateFormat) {
+  String _subtitleMain(JobProfileGraphViewModel vm) {
+    switch (vm.viewMode) {
+      case JobProfileGraphViewMode.payPeriod:
+        return 'Pay period trend';
+      case JobProfileGraphViewMode.monthly:
+        return 'Monthly trend';
+      case JobProfileGraphViewMode.yearly:
+        return 'Yearly trend';
+    }
+  }
+
+  String _subtitleDetail(JobProfileGraphViewModel vm, String dateFormat) {
     switch (vm.viewMode) {
       case JobProfileGraphViewMode.payPeriod:
         final PeriodWindow window = JobProfileTotalsCalculator.currentPayPeriodWindow(
           vm.profile,
           vm.today,
         );
-        return 'Pay period trend • ${formatDateRangeWithSetting(window.start, window.end, dateFormat)}';
+        return formatDateRangeWithSetting(window.start, window.end, dateFormat);
       case JobProfileGraphViewMode.monthly:
         final DateTime reference = vm.points.isNotEmpty ? vm.points.first.window.start : DateTime.now();
-        return 'Month trend • ${DateFormat('MMMM yyyy').format(reference)}';
+        return DateFormat('MMMM yyyy').format(reference);
       case JobProfileGraphViewMode.yearly:
         final int year = vm.points.isNotEmpty ? vm.points.first.window.start.year : DateTime.now().year;
-        return 'Year trend • $year';
+        return '$year';
     }
   }
 

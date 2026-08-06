@@ -47,8 +47,19 @@ app.*.map.json
 # Databases and local storage dumps
 *.db
 *.sqlite
+*.sqlite3
 *.db-journal
 *.db-wal
+*.db-shm
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# Keep SQLCipher scratch databases, test fixtures, and local exports out of the public repo.
+*.db.backup
+*.sqlite.backup
+test/**/fixtures/
+test/**/temp/
 
 # Flutter/Dart build and local configuration
 .env

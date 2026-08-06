@@ -6,6 +6,7 @@ import 'create_job_profile_page.dart';
 import 'job_profile.dart';
 import 'job_profile_database.dart';
 import 'job_profile_details_page.dart';
+import 'security_gate.dart';
 
 // A list of options for each app setting
 const List<String> _dateFormats = <String>[
@@ -67,7 +68,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
       ),
-      home: const HomeScreen(),
+      home: const SecurityGate(child: HomeScreen()),
     );
   }
 }

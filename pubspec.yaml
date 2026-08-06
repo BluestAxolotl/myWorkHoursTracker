@@ -32,6 +32,8 @@ dependencies:
     sdk: flutter
   shared_preferences: ^2.5.3
   flutter_secure_storage: ^9.2.2
+  local_auth: ^2.3.0
+  android_intent_plus: ^6.1.0
   flutter_slidable: ^3.1.2
   path: ^1.9.1
   sqflite_sqlcipher: ^3.4.0

@@ -3,7 +3,6 @@ import 'dart:math';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite_sqlcipher/sqflite.dart';
 
 /// Manages the SQLCipher database encryption key using secure storage.
 /// 
@@ -14,9 +13,7 @@ class DatabaseKeyManager {
 
   static const String _secureStorageKey = 'database_encryption_key_v2';
   static const String _legacySharedPrefKey = 'database_encryption_key_v1';
-  static const String _legacyDbPassword = 'myWorkHoursTracker_local_key_v1';
   static const String _migrationFlagKey = 'database_key_migrated_to_secure_storage';
-  static const int _databaseVersion = 4;
 
   static final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
@@ -26,7 +23,7 @@ class DatabaseKeyManager {
   /// - If a legacy key exists in SharedPreferences, migrates it to secure storage.
   /// - If an existing legacy database exists, generates a new key, rekeyed the database, and stores the new key securely.
   /// - Otherwise, generates a new key and stores it securely.
-  static Future<String> getDatabasePassword(String dbPath) async {
+  static Future<String> getDatabasePassword() async {
     // Check if key already exists in secure storage
     final String? secureKey = await _secureStorage.read(
       key: _secureStorageKey,
@@ -41,12 +38,7 @@ class DatabaseKeyManager {
       return migratedKey;
     }
 
-    final bool dbExists = await databaseExists(dbPath);
-    if (dbExists) {
-      return _legacyDbPassword;
-    }
-
-    // Fresh install: generate and store a new key.
+    // Fresh install or re-created database: generate and store a new key.
     final String newKey = _generateKey();
     await _secureStorage.write(
       key: _secureStorageKey,
@@ -65,23 +57,6 @@ class DatabaseKeyManager {
       await prefs.remove(_migrationFlagKey);
     } catch (_) {
       // Best-effort cleanup only.
-    }
-  }
-
-  /// Rekeys an existing database in place, trying legacy-encrypted first and
-  /// then falling back to a plaintext database.
-  static Future<Database?> repairExistingDatabase(String dbPath) async {
-    try {
-      return await _rekeyOpenedDatabase(
-        dbPath,
-        password: _legacyDbPassword,
-      );
-    } on DatabaseException {
-      try {
-        return await _rekeyOpenedDatabase(dbPath);
-      } on DatabaseException {
-        return null;
-      }
     }
   }
 
@@ -117,36 +92,6 @@ class DatabaseKeyManager {
     }
   }
 
-  /// Opens an existing database and rekeys it with a freshly generated key.
-  static Future<Database> _rekeyOpenedDatabase(
-    String dbPath, {
-    String? password,
-  }) async {
-    final Database legacyDb = await openDatabase(
-      dbPath,
-      password: password,
-      version: _databaseVersion,
-      onOpen: (Database db) async {
-        await db.execute('PRAGMA foreign_keys = ON;');
-      },
-    );
-
-    final String newKey = _generateKey();
-
-    // Rekey the database to the new key.
-    await legacyDb.execute(
-      "PRAGMA rekey = '${_escapeSqlCipherPassword(newKey)}';",
-    );
-
-    // Store the new key securely.
-    await _secureStorage.write(
-      key: _secureStorageKey,
-      value: newKey,
-    );
-
-    return legacyDb;
-  }
-
   /// Generates a cryptographically secure 32-byte database key.
   static String _generateKey() {
     final Random random = Random.secure();
@@ -156,10 +101,5 @@ class DatabaseKeyManager {
       growable: false,
     );
     return base64UrlEncode(bytes);
-  }
-
-  /// Escapes single quotes in a SQLCipher password for use in PRAGMA statements.
-  static String _escapeSqlCipherPassword(String password) {
-    return password.replaceAll("'", "''");
   }
 }

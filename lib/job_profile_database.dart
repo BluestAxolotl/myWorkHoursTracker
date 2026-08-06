@@ -27,8 +27,10 @@ class JobProfileDatabase {
 
     final String dbDirectory = await getDatabasesPath();
     final String path = p.join(dbDirectory, _databaseName);
-    final String password = await DatabaseKeyManager.getDatabasePassword(path);
+    String? password;
     try {
+      password = await DatabaseKeyManager.getDatabasePassword();
+      // SQLCipher initialization hook: the resolved password is supplied here when the database connection is opened.
       _database = await openDatabase(
         path,
         password: password,
@@ -45,36 +47,40 @@ class JobProfileDatabase {
       );
       await _validateOpenedDatabase(_database!);
     } on DatabaseException {
-      final Database? repairedDatabase = await DatabaseKeyManager.repairExistingDatabase(path);
-      if (repairedDatabase == null) {
-        if (await databaseExists(path)) {
-          await _quarantineUnreadableDatabase(path);
-          await DatabaseKeyManager.clearStoredDatabasePassword();
-          final String freshPassword = await DatabaseKeyManager.getDatabasePassword(path);
-          _database = await openDatabase(
-            path,
-            password: freshPassword,
-            version: _databaseVersion,
-            onCreate: (Database db, int version) async {
-              await _createSchema(db);
-            },
-            onUpgrade: (Database db, int oldVersion, int newVersion) async {
-              await _upgradeSchema(db, oldVersion, newVersion);
-            },
-            onOpen: (Database db) async {
-              await db.execute('PRAGMA foreign_keys = ON;');
-            },
-          );
-          await _validateOpenedDatabase(_database!);
-          return _database!;
-        }
-
+      if (await databaseExists(path)) {
+        await _quarantineUnreadableDatabase(path);
+        await DatabaseKeyManager.clearStoredDatabasePassword();
+        final String freshPassword = await DatabaseKeyManager.getDatabasePassword();
+        _database = await openDatabase(
+          path,
+          password: freshPassword,
+          version: _databaseVersion,
+          onCreate: (Database db, int version) async {
+            await _createSchema(db);
+          },
+          onUpgrade: (Database db, int oldVersion, int newVersion) async {
+            await _upgradeSchema(db, oldVersion, newVersion);
+          },
+          onOpen: (Database db) async {
+            await db.execute('PRAGMA foreign_keys = ON;');
+          },
+        );
+        await _validateOpenedDatabase(_database!);
+      } else {
         rethrow;
       }
-      _database = repairedDatabase;
-      await _validateOpenedDatabase(_database!);
+    } finally {
+      password = null;
     }
     return _database!;
+  }
+
+  Future<void> closeDatabase() async {
+    final Database? db = _database;
+    _database = null;
+    if (db != null && db.isOpen) {
+      await db.close();
+    }
   }
 
   Future<void> _validateOpenedDatabase(Database db) async {
