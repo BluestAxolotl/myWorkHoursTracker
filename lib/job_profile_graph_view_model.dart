@@ -169,24 +169,7 @@ class JobProfileGraphViewModel extends ChangeNotifier {
   }
 
   List<JobProfileGraphPoint> _buildMonthlyPoints() {
-    final DateTime monthStart = DateTime(_today.year, _today.month, 1);
-    final int daysInMonth = DateTime(_today.year, _today.month + 1, 0).day;
-
-    return List<JobProfileGraphPoint>.generate(daysInMonth, (int index) {
-      final DateTime day = monthStart.add(Duration(days: index));
-      final PeriodWindow window = PeriodWindow(start: day, end: day);
-      return JobProfileGraphPoint(
-        window: window,
-        summary: JobProfileTotalsCalculator.calculateForWindow(
-          profile: profile,
-          sessions: _sessions,
-          window: window,
-        ),
-      );
-    });
-  }
-
-  List<JobProfileGraphPoint> _buildYearlyPoints() {
+    // Build a point for each month of the current year (Jan..Dec).
     return List<JobProfileGraphPoint>.generate(12, (int index) {
       final int month = index + 1;
       final DateTime start = DateTime(_today.year, month, 1);
@@ -203,6 +186,23 @@ class JobProfileGraphViewModel extends ChangeNotifier {
     });
   }
 
+  List<JobProfileGraphPoint> _buildYearlyPoints() {
+    // Aggregate an entire year into a single point.
+    final DateTime start = DateTime(_today.year, 1, 1);
+    final DateTime end = DateTime(_today.year + 1, 1, 0);
+    final PeriodWindow window = PeriodWindow(start: start, end: end);
+    return <JobProfileGraphPoint>[
+      JobProfileGraphPoint(
+        window: window,
+        summary: JobProfileTotalsCalculator.calculateForWindow(
+          profile: profile,
+          sessions: _sessions,
+          window: window,
+        ),
+      ),
+    ];
+  }
+
   static DateTime _dateOnly(DateTime value) {
     return DateTime(value.year, value.month, value.day);
   }
@@ -216,8 +216,8 @@ String formatGraphPointLabel(
     case JobProfileGraphViewMode.payPeriod:
       return DateFormat('EEE d').format(point.window.start);
     case JobProfileGraphViewMode.monthly:
-      return DateFormat('d').format(point.window.start);
-    case JobProfileGraphViewMode.yearly:
       return DateFormat('MMM').format(point.window.start);
+    case JobProfileGraphViewMode.yearly:
+      return DateFormat('y').format(point.window.start);
   }
 }
