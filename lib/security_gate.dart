@@ -211,48 +211,6 @@ class _SecurityGateState extends State<SecurityGate> with WidgetsBindingObserver
     }
   }
 
-  Future<void> _showNoDeviceSecurityDialog() async {
-    if (!mounted || _isShowingSecurityDialog) {
-      return;
-    }
-
-    _isShowingSecurityDialog = true;
-    try {
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext dialogContext) {
-          return PopScope(
-            canPop: false,
-            child: AlertDialog(
-              title: const Text('Device lock needed'),
-              content: const Text(
-                'Swipe and None are not supported. Please enable PIN, password, pattern, or biometrics to use myWorkHoursTracker.',
-              ),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(dialogContext).pop();
-                    _openAndroidSecuritySettings();
-                  },
-                  child: const Text('Open security settings'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    Navigator.of(dialogContext).pop();
-                  },
-                  child: const Text('Try again'),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    } finally {
-      _isShowingSecurityDialog = false;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLocked) {
